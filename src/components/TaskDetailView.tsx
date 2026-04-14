@@ -1,11 +1,10 @@
 import { ChevronLeft, Trash2 } from "lucide-react";
 import { RefObject } from "react";
 import { Priority, Status, Task } from "../api";
-import {
-  PRIORITY_OPTIONS,
-  STATUS_OPTIONS,
-} from "../app/constants";
+import { PRIORITY_OPTIONS, STATUS_OPTIONS } from "../app/constants";
 import { formatFullDate, formatPriority, formatStatus } from "../app/formatters";
+import { Project } from "../app/types";
+import { CustomSelect } from "./CustomSelect";
 
 type TaskDetailViewProps = {
   selectedTask: Task | null;
@@ -13,6 +12,8 @@ type TaskDetailViewProps = {
     title: string;
     description: string;
   };
+  projects: Project[];
+  selectedProject: Project | null;
   detailSaving: boolean;
   deleteSaving: boolean;
   descriptionTextareaRef: RefObject<HTMLTextAreaElement | null>;
@@ -20,12 +21,15 @@ type TaskDetailViewProps = {
   onDetailDraftChange: (field: "title" | "description", value: string) => void;
   onDetailBlur: (field: "title" | "description") => void;
   onTaskFieldUpdate: (field: "status" | "priority", value: Status | Priority) => void;
+  onProjectChange: (projectId: number | "ALL") => void;
   onDelete: () => void;
 };
 
 export function TaskDetailView({
   selectedTask,
   detailDraft,
+  projects,
+  selectedProject,
   detailSaving,
   deleteSaving,
   descriptionTextareaRef,
@@ -33,6 +37,7 @@ export function TaskDetailView({
   onDetailDraftChange,
   onDetailBlur,
   onTaskFieldUpdate,
+  onProjectChange,
   onDelete,
 }: TaskDetailViewProps) {
   return (
@@ -51,9 +56,9 @@ export function TaskDetailView({
                   className={`detail-priority-dot detail-priority-dot--${selectedTask.priority.toLowerCase()}`}
                 />
                 <span>{selectedTask.priority}</span>
-                <span className="detail-meta-separator">·</span>
+                <span className="detail-meta-separator">•</span>
                 <span>{formatStatus(selectedTask.status).toUpperCase()}</span>
-                <span className="detail-meta-separator">·</span>
+                <span className="detail-meta-separator">•</span>
                 <span className="detail-date">{formatFullDate(selectedTask.createdAt)}</span>
               </div>
 
@@ -75,6 +80,30 @@ export function TaskDetailView({
                 rows={1}
                 value={detailDraft.description}
               />
+
+              <div className="detail-project-card">
+                <div className="detail-project-card__copy">
+                  <span className="footer-label">Project</span>
+                  <strong>{selectedProject?.name ?? "Without project"}</strong>
+                  <p>
+                    {selectedProject?.description ||
+                      "This binding is already available in the UI, even while the backend contract is still being implemented."}
+                  </p>
+                </div>
+                <div className="detail-project-card__control">
+                  <CustomSelect
+                    onChange={(value) => onProjectChange(value as number | "ALL")}
+                    options={[
+                      { value: "ALL", label: "Without project" },
+                      ...projects.map((project) => ({
+                        value: project.id,
+                        label: project.name,
+                      })),
+                    ]}
+                    value={selectedTask.projectId ?? "ALL"}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

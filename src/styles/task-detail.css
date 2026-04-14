@@ -170,6 +170,37 @@
   color: rgba(255, 255, 255, 0.2);
 }
 
+.detail-project-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 18px;
+  margin-top: 28px;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.detail-project-card__copy {
+  display: grid;
+  gap: 8px;
+}
+
+.detail-project-card__copy strong {
+  font-size: 18px;
+  color: #fff;
+}
+
+.detail-project-card__copy p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.56);
+  line-height: 1.6;
+}
+
+.detail-project-card__control {
+  align-self: center;
+}
+
 .detail-footer {
   flex-shrink: 0;
   display: flex;

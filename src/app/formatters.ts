@@ -1,4 +1,5 @@
 import { Priority, Status } from "../api";
+import { ProjectFilter } from "./types";
 
 export function formatPriority(priority: Priority) {
   return priority.charAt(0) + priority.slice(1).toLowerCase();
@@ -25,4 +26,16 @@ export function formatFullDate(input: string) {
     month: "short",
     day: "numeric",
   }).format(new Date(input));
+}
+
+export function formatProjectFilter(projectFilter: ProjectFilter) {
+  if (projectFilter === "ALL") {
+    return "All projects";
+  }
+
+  if (projectFilter === "NONE") {
+    return "Without project";
+  }
+
+  return "Project";
 }

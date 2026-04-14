@@ -1,11 +1,21 @@
 @media (max-width: 1100px) {
   .app-shell {
-    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-columns: 280px minmax(0, 1fr);
   }
 
   .task-column--list,
   .detail-view {
     grid-column: 2 / 3;
+  }
+
+  .sidebar {
+    width: 280px;
+  }
+
+  .project-focus-card,
+  .project-manager__layout,
+  .detail-project-card {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -39,7 +49,8 @@
   }
 
   .task-form__row,
-  .ai-focus-bar {
+  .ai-focus-bar,
+  .project-focus-card__stats {
     grid-template-columns: 1fr;
   }
 
@@ -62,11 +73,40 @@
     padding: 32px 24px;
   }
 
+  .project-manager {
+    width: min(100%, 720px);
+  }
+
   .footer-group {
     flex-wrap: wrap;
   }
 
   .footer-separator {
     display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .auth-shell {
+    padding: 16px;
+  }
+
+  .auth-card {
+    width: 100%;
+  }
+
+  .auth-card__content {
+    padding: 26px 22px 22px;
+  }
+
+  .auth-card h1 {
+    max-width: none;
+    font-size: 24px;
+  }
+
+  .project-nav__header,
+  .project-manager__form-header {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

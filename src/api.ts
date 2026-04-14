@@ -1,3 +1,5 @@
+import axios, { AxiosError } from "axios";
+
 export type Priority = "LOW" | "MEDIUM" | "HIGH";
 export type Status = "OPEN" | "IN_PROGRESS" | "DONE" | "CANCELLED";
 
@@ -9,48 +11,55 @@ export interface Task {
   status: Status;
   priority: Priority;
   creatorId: number;
+  projectId?: number | null;
+  dueDate?: string | null;
 }
 
-interface AuthResponse {
-  accessToken: string;
+export interface Project {
+  id: number;
+  name: string;
+  description: string | null;
+  color: string | null;
+  archived: boolean;
+  createdAt: string;
 }
 
-interface PageResponse<T> {
+export interface PageResponse<T> {
   content: T[];
   last: boolean;
   totalPages: number;
   number: number;
   size: number;
+  totalElements?: number;
 }
 
-type TaskQuery = {
-  page?: number;
-  size?: number;
-  status?: Status;
-  priority?: Priority;
+type AuthResponse = {
+  accessToken: string;
 };
 
-type AuthPayload = {
+type LoginPayload =
+  | {
+      username: string;
+      password: string;
+      email?: never;
+    }
+  | {
+      email: string;
+      password: string;
+      username?: never;
+    };
+
+type RegisterPayload = {
   username: string;
+  email: string;
   password: string;
 };
-
-type RegisterPayload = AuthPayload & {
-  email: string;
+type RegistrationPayload = RegisterPayload & {
   confirmPassword: string;
 };
 
-type TaskPayload = {
-  title: string;
-  description: string;
-  priority: Priority;
-  status: Status;
-};
-
-type UpdateTaskPayload = Partial<TaskPayload>;
-
 const API_BASE_URL = import.meta.env.DEV ? "/api" : "http://localhost:8080/api";
-const ACCESS_TOKEN_STORAGE_KEY = "task-tracker-access-token";
+const ACCESS_TOKEN_STORAGE_KEY = "access_token";
 
 let accessToken =
   typeof window !== "undefined" ? window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) : null;
@@ -68,180 +77,136 @@ export function setAccessToken(token: string | null) {
   }
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit, allowRefresh = true): Promise<T> {
-  let response: Response;
-  const currentOrigin =
-    typeof window !== "undefined" && window.location?.origin
-      ? window.location.origin
-      : "unknown";
-  const headers = new Headers(init?.headers);
-
-  headers.set("API-Version", "1.0");
-
-  if (init?.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  if (accessToken && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${accessToken}`);
-  }
-
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      ...init,
-      credentials: "include",
-      headers,
-    });
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error(
-        `Cannot reach backend. Check that Spring is running on http://localhost:8080 and that CORS allows origin ${currentOrigin}.`,
-      );
-    }
-
-    throw error;
-  }
-
-  if (response.status === 401) {
-    if (allowRefresh && shouldAttemptRefresh(path)) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
-        return apiFetch<T>(path, init, false);
-      }
-    }
-
-    throw new Error("UNAUTHORIZED");
-  }
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed with status ${response.status}`);
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  const responseText = await response.text();
-  if (!responseText) {
-    return undefined as T;
-  }
-
-  return JSON.parse(responseText) as T;
+export function restoreAccessToken() {
+  return accessToken;
 }
 
-function shouldAttemptRefresh(path: string) {
-  return !path.startsWith("/auth/login") && !path.startsWith("/auth/register") && !path.startsWith("/auth/refresh");
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  headers: {
+    "API-Version": "1.0",
+  },
+});
+
+apiClient.interceptors.request.use((config) => {
+  config.headers = config.headers ?? {};
+  config.headers["API-Version"] = "1.0";
+  config.withCredentials = true;
+
+  const requestUrl = typeof config.url === "string" ? config.url : "";
+  const isRefreshRequest = requestUrl.includes("/auth/refresh");
+
+  if (accessToken && !config.headers.Authorization && !isRefreshRequest) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  return config;
+});
+
+let refreshPromise: Promise<string | null> | null = null;
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config;
+    const status = error.response?.status;
+    const path = originalRequest?.url ?? "";
+
+    if (status !== 401 || !originalRequest || (originalRequest as { _retry?: boolean })._retry) {
+      throw normalizeApiError(error);
+    }
+
+    if (path.includes("/auth/login") || path.includes("/auth/register") || path.includes("/auth/refresh")) {
+      throw normalizeApiError(error);
+    }
+
+    (originalRequest as { _retry?: boolean })._retry = true;
+    refreshPromise ??= refreshAccessToken().finally(() => {
+      refreshPromise = null;
+    });
+
+    const refreshedToken = await refreshPromise;
+    if (!refreshedToken) {
+      throw new Error("UNAUTHORIZED");
+    }
+
+    originalRequest.headers = originalRequest.headers ?? {};
+    originalRequest.headers.Authorization = `Bearer ${refreshedToken}`;
+
+    return apiClient.request(originalRequest);
+  },
+);
+
+export async function loginUser(payload: LoginPayload) {
+  const response = await apiClient.post<AuthResponse>("/auth/login", payload);
+  setAccessToken(response.data.accessToken);
+  return response.data;
+}
+
+export async function registerUser(payload: RegistrationPayload) {
+  const response = await apiClient.post<AuthResponse>("/auth/register", payload);
+  setAccessToken(response.data.accessToken);
+  return response.data;
 }
 
 export async function refreshAccessToken() {
   try {
-    const response = await apiFetch<AuthResponse>(
-      "/auth/refresh",
-      {
-        method: "POST",
-      },
-      false,
-    );
-    setAccessToken(response.accessToken);
-    return response.accessToken;
+    const response = await apiClient.post<AuthResponse>("/auth/refresh");
+    setAccessToken(response.data.accessToken);
+    return response.data.accessToken;
   } catch {
     setAccessToken(null);
     return null;
   }
 }
 
-export function loginUser(payload: AuthPayload) {
-  return apiFetch<AuthResponse>("/auth/login", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
+export async function bootstrapSession() {
+  if (restoreAccessToken()) {
+    return restoreAccessToken();
+  }
 
-export function registerUser(payload: RegisterPayload) {
-  return apiFetch<AuthResponse>("/auth/register", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return refreshAccessToken();
 }
 
 export async function logoutUser() {
   try {
-    await apiFetch<void>("/auth/logout", {
-      method: "POST",
-    }, false);
+    await apiClient.post("/auth/logout");
   } finally {
     setAccessToken(null);
   }
 }
 
-export function restoreAccessToken() {
-  return accessToken;
-}
-
-export function getTasks({ page = 0, size = 50, status, priority }: TaskQuery = {}) {
-  const searchParams = new URLSearchParams({
-    page: String(page),
-    size: String(size),
-  });
-
-  if (status) {
-    searchParams.set("status", status);
-  }
-
-  if (priority) {
-    searchParams.set("priority", priority);
-  }
-
-  return apiFetch<PageResponse<Task>>(`/tasks?${searchParams.toString()}`);
-}
-
-export async function getAllTasksPaginated(
-  { status, priority }: Pick<TaskQuery, "status" | "priority"> = {},
-  size = 50,
-) {
-  const allTasks: Task[] = [];
-  let page = 0;
-
-  while (true) {
-    const response = await getTasks({ page, size, status, priority });
-    allTasks.push(...response.content);
-
-    if (response.last || response.content.length === 0 || page >= response.totalPages - 1) {
-      return allTasks;
+export function normalizeApiError(error: unknown) {
+  if (axios.isAxiosError(error)) {
+    if (error.response?.status === 401) {
+      return new Error("UNAUTHORIZED");
     }
 
-    page += 1;
+    if (!error.response) {
+      return new Error("Cannot reach backend. Check that Spring is running on http://localhost:8080.");
+    }
+
+    const responseData = error.response.data;
+    if (typeof responseData === "string" && responseData.trim()) {
+      return new Error(responseData);
+    }
+
+    return new Error(`Request failed with status ${error.response.status}`);
   }
+
+  if (error instanceof Error) {
+    return error;
+  }
+
+  return new Error("Something went wrong");
 }
 
-export function getTask(id: number) {
-  return apiFetch<Task>(`/tasks/${id}`);
-}
+export function extractCreatedIdFromLocation(location?: string | null) {
+  if (!location) {
+    return null;
+  }
 
-export function createTask(payload: TaskPayload) {
-  return apiFetch<Task | undefined>("/tasks", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export function updateTask(id: number, payload: TaskPayload) {
-  return apiFetch<Task>(`/tasks/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  });
-}
-
-export function patchTask(id: number, payload: UpdateTaskPayload) {
-  return apiFetch<Task>(`/tasks/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  });
-}
-
-export function deleteTask(id: number) {
-  return apiFetch<void>(`/tasks/${id}`, {
-    method: "DELETE",
-  });
+  const match = location.match(/\/(\d+)(?:\/)?$/);
+  return match ? Number(match[1]) : null;
 }

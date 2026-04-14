@@ -1,717 +1,449 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Priority,
-  Status,
-  Task,
-  createTask,
-  deleteTask,
-  getAllTasksPaginated,
-  loginUser,
-  logoutUser,
-  patchTask,
-  registerUser,
-  setAccessToken,
-  updateTask,
-} from "./api";
-import { EMPTY_TASK_FORM, PRIORITY_ORDER } from "./app/constants";
-import { AppFeedback, AuthMode, TaskFilter, TaskFormState } from "./app/types";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Project, Task, logoutUser, normalizeApiError, setAccessToken } from "./api";
 import "./App.css";
 import { useAuth } from "./auth";
-import { AuthScreen } from "./components/AuthScreen";
-import { DeleteConfirmModal } from "./components/DeleteConfirmModal";
-import { FeedbackToast } from "./components/FeedbackToast";
-import { NewTaskModal } from "./components/NewTaskModal";
-import { Sidebar } from "./components/Sidebar";
-import { TaskContextMenu } from "./components/TaskContextMenu";
-import { TaskDetailView } from "./components/TaskDetailView";
-import { TaskListView } from "./components/TaskListView";
+import { AuthPage } from "./components/AuthPage";
+import { NewProjectModal } from "./features/projects/components/NewProjectModal";
+import { ProjectStatsBar } from "./features/projects/components/ProjectStatsBar";
+import { ProjectTopbar } from "./features/projects/components/ProjectTopbar";
+import { useCreateProject } from "./features/projects/hooks/useCreateProject";
+import { useProject } from "./features/projects/hooks/useProject";
+import { useProjects } from "./features/projects/hooks/useProjects";
+import { NewTaskModal } from "./features/tasks/components/NewTaskModal";
+import { TaskList } from "./features/tasks/components/TaskList";
+import { TaskFullView } from "./features/tasks/components/TaskFullView";
+import { useCreateTask } from "./features/tasks/hooks/useCreateTask";
+import { useTasks } from "./features/tasks/hooks/useTasks";
+import { AppLayout } from "./layout/AppLayout";
+import { Sidebar } from "./layout/Sidebar";
 
-function App() {
-  const { user, setUser, clearUser } = useAuth();
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [view, setView] = useState<"list" | "detail">("list");
-  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
-  const [hoveredTaskId, setHoveredTaskId] = useState<number | null>(null);
-  const [activeFilter, setActiveFilter] = useState<TaskFilter>("ALL");
-  const [authMode, setAuthMode] = useState<AuthMode>("login");
-  const [authLoading, setAuthLoading] = useState(false);
-  const [taskLoading, setTaskLoading] = useState(false);
-  const [taskModalOpen, setTaskModalOpen] = useState(false);
-  const [taskModalClosing, setTaskModalClosing] = useState(false);
-  const [taskCreateSuccess, setTaskCreateSuccess] = useState(false);
-  const [taskSaving, setTaskSaving] = useState(false);
-  const [createdTaskId, setCreatedTaskId] = useState<number | null>(null);
-  const [detailSaving, setDetailSaving] = useState(false);
-  const [deleteSaving, setDeleteSaving] = useState(false);
-  const [deleteConfirmTaskId, setDeleteConfirmTaskId] = useState<number | null>(null);
-  const [contextMenu, setContextMenu] = useState<{
-    taskId: number;
-    x: number;
-    y: number;
-  } | null>(null);
-  const [feedback, setFeedback] = useState<AppFeedback | null>(null);
-  const [feedbackClosing, setFeedbackClosing] = useState(false);
-  const [authForm, setAuthForm] = useState({
-    username: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
-  const [taskForm, setTaskForm] = useState<TaskFormState>(EMPTY_TASK_FORM);
-  const [detailDraft, setDetailDraft] = useState({
-    title: "",
-    description: "",
-  });
-  const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
+type Notice = {
+  title: string;
+  message: string;
+  tone?: "error" | "success";
+};
 
-  useEffect(() => {
-    if (!user) {
-      setTasks([]);
-      setSelectedTaskId(null);
-      return;
-    }
-
-    void loadTasks();
-  }, [user, activeFilter]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const isNewShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "n";
-      if (!isNewShortcut || !user) {
-        return;
-      }
-
-      event.preventDefault();
-      openTaskModal();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [user]);
-
-  useEffect(() => {
-    if (!taskModalClosing) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setTaskModalClosing(false);
-      setTaskModalOpen(false);
-    }, 180);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [taskModalClosing]);
-
-  useEffect(() => {
-    if (!taskCreateSuccess) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setTaskCreateSuccess(false);
-      setTaskModalClosing(true);
-    }, 520);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [taskCreateSuccess]);
-
-  useEffect(() => {
-    if (!feedback) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      dismissFeedback();
-    }, 4500);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [feedback]);
-
-  useEffect(() => {
-    if (!feedbackClosing) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setFeedback(null);
-      setFeedbackClosing(false);
-    }, 180);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [feedbackClosing]);
-
-  useEffect(() => {
-    if (!createdTaskId) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setCreatedTaskId(null);
-    }, 1800);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [createdTaskId]);
-
-  useEffect(() => {
-    function closeContextMenu() {
-      setContextMenu(null);
-    }
-
-    window.addEventListener("click", closeContextMenu);
-    window.addEventListener("scroll", closeContextMenu, true);
-    return () => {
-      window.removeEventListener("click", closeContextMenu);
-      window.removeEventListener("scroll", closeContextMenu, true);
-    };
-  }, []);
-
-  const selectedTask = useMemo(
-    () => tasks.find((task) => task.id === selectedTaskId) ?? null,
-    [selectedTaskId, tasks],
-  );
-
-  useEffect(() => {
-    if (!selectedTask) {
-      setDetailDraft({ title: "", description: "" });
-      return;
-    }
-
-    setDetailDraft({
-      title: selectedTask.title,
-      description: selectedTask.description,
-    });
-  }, [selectedTask]);
-
-  useEffect(() => {
-    if (!descriptionTextareaRef.current) {
-      return;
-    }
-
-    descriptionTextareaRef.current.style.height = "auto";
-    descriptionTextareaRef.current.style.height = `${descriptionTextareaRef.current.scrollHeight}px`;
-  }, [detailDraft.description]);
-
-  const groupedTasks = useMemo(() => {
-    return PRIORITY_ORDER.map((priority) => ({
-      priority,
-      tasks: tasks.filter((task) => task.priority === priority),
-    })).filter((group) => group.tasks.length > 0);
-  }, [tasks]);
-
-  async function loadTasks() {
-    setTaskLoading(true);
-    setFeedback(null);
-
-    try {
-      const status =
-        activeFilter === "OPEN" ||
-        activeFilter === "IN_PROGRESS" ||
-        activeFilter === "DONE" ||
-        activeFilter === "CANCELLED"
-          ? activeFilter
-          : undefined;
-      const priority = activeFilter === "HIGH_PRIORITY" ? "HIGH" : undefined;
-
-      const taskList = await getAllTasksPaginated({ status, priority });
-      setTasks(taskList);
-      setSelectedTaskId((currentId) => {
-        if (currentId && taskList.some((task) => task.id === currentId)) {
-          return currentId;
-        }
-
-        return taskList[0]?.id ?? null;
-      });
-      if (taskList.length === 0) {
-        setView("list");
-      }
-    } catch (error) {
-      handleAppError(error);
-    } finally {
-      setTaskLoading(false);
-    }
+function isToday(dateString?: string | null) {
+  if (!dateString) {
+    return false;
   }
 
-  async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setAuthLoading(true);
-    setFeedback(null);
+  const today = new Date();
+  const date = new Date(dateString);
 
-    try {
-      if (authMode === "login") {
-        const response = await loginUser({
-          username: authForm.username,
-          password: authForm.password,
-        });
-        setAccessToken(response.accessToken);
-      } else {
-        const response = await registerUser({
-          username: authForm.username,
-          email: authForm.email,
-          password: authForm.password,
-          confirmPassword: authForm.confirmPassword,
-        });
-        setAccessToken(response.accessToken);
-      }
+  return (
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  );
+}
 
-      setUser(authForm.username);
-      setAuthForm({ username: "", email: "", password: "", confirmPassword: "" });
-    } catch (error) {
-      handleAppError(error);
-    } finally {
-      setAuthLoading(false);
+function sortTasks(tasks: Task[]) {
+  return [...tasks].sort((left, right) => {
+    const statusOrder: Record<Task["status"], number> = {
+      IN_PROGRESS: 0,
+      OPEN: 1,
+      DONE: 2,
+      CANCELLED: 3,
+    };
+
+    return (
+      statusOrder[left.status] - statusOrder[right.status] ||
+      new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+    );
+  });
+}
+
+function ComingSoonPanel({ label }: { label: string }) {
+  return (
+    <div className="flex h-full items-center justify-center px-6">
+      <div className="rounded-[28px] border border-dashed border-white/10 bg-white/[0.03] px-10 py-12 text-center">
+        <p className="text-xs uppercase tracking-[0.24em] text-white/35">{label}</p>
+        <h2 className="mt-3 text-2xl font-semibold text-white">Coming soon</h2>
+        <p className="mt-2 max-w-md text-sm text-white/50">
+          {label} view is not implemented yet, but the navigation is already in place.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceView({
+  allProjects,
+  onOpenTask,
+  onOpenTaskModal,
+}: {
+  allProjects: Project[];
+  onOpenTask: (task: Task) => void;
+  onOpenTaskModal: (projectId?: number) => void;
+}) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<"list" | "board" | "timeline">("list");
+  const tabsRef = useRef<Record<"list" | "board" | "timeline", HTMLButtonElement | null>>({
+    list: null,
+    board: null,
+    timeline: null,
+  });
+  const tabsRailRef = useRef<HTMLDivElement | null>(null);
+  const [tabUnderline, setTabUnderline] = useState({ width: 0, x: 0, opacity: 0 });
+  const projectIdParam = useParams().projectId;
+  const projectId = projectIdParam ? Number(projectIdParam) : null;
+  const todayMode = searchParams.get("view") === "today";
+  const projectQuery = useProject(projectId);
+  const project = projectId
+    ? projectQuery.data ?? allProjects.find((item) => item.id === projectId) ?? null
+    : null;
+
+  const taskQuery = useTasks(projectId ? { projectId } : {});
+  const rawTasks = useMemo(() => taskQuery.data ?? [], [taskQuery.data]);
+  const scopedTasks = useMemo(() => {
+    if (todayMode && projectId === null) {
+      return rawTasks.filter((task) => isToday(task.dueDate));
     }
+
+    return rawTasks;
+  }, [projectId, rawTasks, todayMode]);
+  const tasks = useMemo(() => sortTasks(scopedTasks), [scopedTasks]);
+
+  const stats = useMemo(
+    () => ({
+      total: tasks.length,
+      open: tasks.filter((task) => task.status === "OPEN").length,
+      inProgress: tasks.filter((task) => task.status === "IN_PROGRESS").length,
+      done: tasks.filter((task) => task.status === "DONE").length,
+    }),
+    [tasks],
+  );
+
+  const title = project ? project.name : todayMode ? "Today" : "My tasks";
+  const subtitle = project
+    ? `${tasks.length} tasks in this workspace`
+    : todayMode
+      ? "Tasks due today across all projects"
+      : "Everything across all projects";
+
+  if (projectId !== null && !project && !taskQuery.isLoading && !projectQuery.isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="rounded-[28px] border border-white/10 bg-white/[0.03] px-8 py-10 text-center">
+          <h2 className="text-2xl font-semibold text-white">Project not found</h2>
+          <p className="mt-2 text-sm text-white/50">This project may have been archived or removed.</p>
+        </div>
+      </div>
+    );
+  }
+
+  useLayoutEffect(() => {
+    const activeButton = tabsRef.current[activeTab];
+    const rail = tabsRailRef.current;
+
+    if (!activeButton || !rail) {
+      return;
+    }
+
+    setTabUnderline({
+      width: activeButton.offsetWidth,
+      x: activeButton.offsetLeft,
+      opacity: 1,
+    });
+  }, [activeTab]);
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden">
+      <ProjectTopbar
+        color={project?.color}
+        isProjectView={Boolean(project)}
+        onCreateTask={() => onOpenTaskModal(project?.id)}
+        subtitle={subtitle}
+        title={title}
+      />
+
+      <div className="border-b border-white/10 px-6">
+        <div className="flex items-center justify-between gap-4 py-3">
+          <div className="tab-strip relative inline-flex" ref={tabsRailRef}>
+            <span
+              className="tab-strip__underline absolute bottom-0 h-0.5 rounded-full bg-[#6C63FF] transition-[transform,width,opacity] duration-300 ease-out"
+              style={{
+                width: `${tabUnderline.width}px`,
+                transform: `translateX(${tabUnderline.x}px)`,
+                opacity: tabUnderline.opacity,
+              }}
+            />
+            {(["list", "board", "timeline"] as const).map((tab) => (
+              <button
+                className={[
+                  "relative z-10 px-3 py-2 text-sm transition-colors",
+                  activeTab === tab ? "text-white" : "text-white/40 hover:text-white/70",
+                ].join(" ")}
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                ref={(node) => {
+                  tabsRef.current[tab] = node;
+                }}
+                type="button"
+              >
+                {tab === "list" ? "List" : tab === "board" ? "Board" : "Timeline"}
+              </button>
+            ))}
+          </div>
+
+          {todayMode ? (
+            <button
+              className="text-xs text-white/35 transition hover:text-white/65"
+              onClick={() => setSearchParams({})}
+              type="button"
+            >
+              Exit Today view
+            </button>
+          ) : <span />}
+        </div>
+      </div>
+
+      <ProjectStatsBar done={stats.done} inProgress={stats.inProgress} open={stats.open} total={stats.total} />
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {activeTab === "board" ? (
+          <ComingSoonPanel label="Board" />
+        ) : activeTab === "timeline" ? (
+          <ComingSoonPanel label="Timeline" />
+        ) : (
+          <TaskList loading={taskQuery.isLoading} onOpenTask={onOpenTask} tasks={tasks} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AppShell() {
+  const { user, clearUser } = useAuth();
+  const navigate = useNavigate();
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [closingProjectModal, setClosingProjectModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [closingTaskModal, setClosingTaskModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailMounted, setDetailMounted] = useState(false);
+  const [newTaskProjectId, setNewTaskProjectId] = useState<number | undefined>(undefined);
+
+  const projectsQuery = useProjects();
+  const allTasksQuery = useTasks();
+  const createProject = useCreateProject();
+  const createTask = useCreateTask();
+
+  function showToast(toast: Notice) {
+    setNotice(toast);
+  }
+
+  function openProjectModal() {
+    setClosingProjectModal(false);
+    setShowProjectModal(true);
+  }
+
+  function closeProjectModal() {
+    setClosingProjectModal(true);
+    window.setTimeout(() => {
+      setShowProjectModal(false);
+      setClosingProjectModal(false);
+    }, 180);
+  }
+
+  function openTaskModal(projectId?: number) {
+    setNewTaskProjectId(projectId);
+    setClosingTaskModal(false);
+    setShowTaskModal(true);
+  }
+
+  function closeTaskModal() {
+    setClosingTaskModal(true);
+    window.setTimeout(() => {
+      setShowTaskModal(false);
+      setClosingTaskModal(false);
+    }, 180);
+  }
+
+  function openDetail(task: Task) {
+    setSelectedTask(task);
+    setDetailMounted(true);
+    window.requestAnimationFrame(() => {
+      setDetailOpen(true);
+    });
+  }
+
+  function closeDetail() {
+    setDetailOpen(false);
+    window.setTimeout(() => {
+      setDetailMounted(false);
+      setSelectedTask(null);
+    }, 300);
   }
 
   async function handleLogout() {
     try {
       await logoutUser();
-    } catch (error) {
-      handleAppError(error);
+    } catch {
+      // Ignore logout errors and clear local session anyway.
     } finally {
+      setAccessToken(null);
       clearUser();
-      setTasks([]);
-      setSelectedTaskId(null);
+      navigate("/");
     }
   }
 
-  async function handleTaskCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!taskForm.title.trim()) {
-      setFeedback({
-        title: "Add a title",
-        message: "Enter a short task title before creating the task.",
-      });
-      return;
-    }
-
-    setTaskSaving(true);
-    setFeedback(null);
-
+  async function handleCreateProject(values: { name: string; description: string; color: string }) {
     try {
-      const createdTask = await createTask({
-        title: taskForm.title.trim(),
-        description: taskForm.description.trim(),
-        priority: taskForm.priority,
-        status: taskForm.status,
-      });
-
-      setTaskForm(EMPTY_TASK_FORM);
-      setTaskCreateSuccess(true);
-
-      if (createdTask) {
-        setTasks((currentTasks) => [createdTask, ...currentTasks]);
-        setSelectedTaskId(createdTask.id);
-        setCreatedTaskId(createdTask.id);
-        setFeedback({
-          title: "Task created",
-          message: `"${createdTask.title}" is now in your queue.`,
+      const project = await createProject.mutateAsync(values);
+      closeProjectModal();
+      window.setTimeout(() => {
+        navigate(`/projects/${project.id}`);
+        setNotice({
+          title: "Project created",
+          message: `${project.name} is ready.`,
           tone: "success",
         });
-      } else {
-        await loadTasks();
-        setFeedback({
-          title: "Task created",
-          message: "Your task was created successfully.",
-          tone: "success",
-        });
-      }
+      }, 180);
     } catch (error) {
-      handleAppError(error);
-    } finally {
-      setTaskSaving(false);
-    }
-  }
-
-  async function handleTaskFieldUpdate(field: "status" | "priority", value: Status | Priority) {
-    if (!selectedTask) {
-      return;
-    }
-
-    const nextTask: Task = {
-      ...selectedTask,
-      [field]: value,
-    } as Task;
-
-    setDetailSaving(true);
-    setFeedback(null);
-
-    try {
-      const updatedTask = await updateTask(selectedTask.id, {
-        title: nextTask.title,
-        description: nextTask.description,
-        priority: nextTask.priority,
-        status: nextTask.status,
-      });
-
-      setTasks((currentTasks) =>
-        currentTasks.map((task) => (task.id === updatedTask.id ? updatedTask : task)),
-      );
-    } catch (error) {
-      handleAppError(error);
-    } finally {
-      setDetailSaving(false);
-    }
-  }
-
-  async function handleQuickComplete(taskId: number) {
-    const task = tasks.find((item) => item.id === taskId);
-    if (!task) {
-      return;
-    }
-
-    const nextStatus: Status = task.status === "DONE" ? "OPEN" : "DONE";
-    const nextTask: Task = {
-      ...task,
-      status: nextStatus,
-    };
-
-    const previousTasks = tasks;
-
-    setTasks((currentTasks) =>
-      currentTasks
-        .map((item) => (item.id === taskId ? nextTask : item))
-        .filter((item) => matchesActiveFilter(item, activeFilter)),
-    );
-
-    try {
-      const updatedTask = await updateTask(taskId, {
-        title: nextTask.title,
-        description: nextTask.description,
-        priority: nextTask.priority,
-        status: nextTask.status,
-      });
-
-      setTasks((currentTasks) => {
-        const merged = currentTasks.some((item) => item.id === updatedTask.id)
-          ? currentTasks.map((item) => (item.id === updatedTask.id ? updatedTask : item))
-          : [...currentTasks, updatedTask];
-
-        return merged.filter((item) => matchesActiveFilter(item, activeFilter));
-      });
-      setFeedback({
-        title: nextStatus === "DONE" ? "Task completed" : "Task reopened",
-        message:
-          nextStatus === "DONE"
-            ? `"${updatedTask.title}" moved to Completed.`
-            : `"${updatedTask.title}" moved back to Open.`,
-        tone: "success",
-      });
-    } catch (error) {
-      setTasks(previousTasks);
-      handleAppError(error);
-    }
-  }
-
-  async function handleTaskDelete(taskId?: number) {
-    const idToDelete = taskId ?? selectedTask?.id;
-    if (!idToDelete) {
-      return;
-    }
-
-    setDeleteSaving(true);
-    setFeedback(null);
-    setContextMenu(null);
-
-    try {
-      await deleteTask(idToDelete);
-      setTasks((currentTasks) => currentTasks.filter((task) => task.id !== idToDelete));
-      if (selectedTaskId === idToDelete) {
-        setSelectedTaskId(null);
-        setView("list");
-      }
-    } catch (error) {
-      handleAppError(error);
-    } finally {
-      setDeleteSaving(false);
-    }
-  }
-
-  function openDeleteConfirm(taskId: number) {
-    setContextMenu(null);
-    setDeleteConfirmTaskId(taskId);
-  }
-
-  function closeDeleteConfirm() {
-    if (!deleteSaving) {
-      setDeleteConfirmTaskId(null);
-    }
-  }
-
-  function openTaskModal() {
-    setFeedback(null);
-    setTaskCreateSuccess(false);
-    setTaskModalClosing(false);
-    setTaskModalOpen(true);
-  }
-
-  function closeTaskModal() {
-    if (taskSaving || !taskModalOpen || taskModalClosing) {
-      return;
-    }
-
-    setTaskCreateSuccess(false);
-    setTaskModalClosing(true);
-  }
-
-  function handleTaskOpen(taskId: number) {
-    setSelectedTaskId(taskId);
-    setView("detail");
-  }
-
-  async function handleDetailBlur(field: "title" | "description") {
-    if (!selectedTask) {
-      return;
-    }
-
-    const nextValue = detailDraft[field].trim();
-    const fallbackValue = field === "title" ? selectedTask.title : selectedTask.description;
-    const resolvedValue = field === "title" && !nextValue ? fallbackValue : detailDraft[field];
-
-    if (resolvedValue === selectedTask[field]) {
-      return;
-    }
-
-    const previousTask = selectedTask;
-    const updatedTask: Task = {
-      ...selectedTask,
-      [field]: resolvedValue,
-    };
-
-    setTasks((currentTasks) =>
-      currentTasks.map((task) => (task.id === selectedTask.id ? updatedTask : task)),
-    );
-    setDetailDraft((current) => ({
-      ...current,
-      [field]: resolvedValue,
-    }));
-
-    setDetailSaving(true);
-
-    try {
-      const savedTask = await patchTask(selectedTask.id, {
-        [field]: resolvedValue,
-      });
-
-      setTasks((currentTasks) =>
-        currentTasks.map((task) => (task.id === savedTask.id ? savedTask : task)),
-      );
-      setDetailDraft({
-        title: savedTask.title,
-        description: savedTask.description,
-      });
-    } catch (error) {
-      setTasks((currentTasks) =>
-        currentTasks.map((task) => (task.id === previousTask.id ? previousTask : task)),
-      );
-      setDetailDraft({
-        title: previousTask.title,
-        description: previousTask.description,
-      });
-      handleAppError(error);
-    } finally {
-      setDetailSaving(false);
-    }
-  }
-
-  function handleAppError(error: unknown) {
-    if (error instanceof Error) {
-      if (error.message === "UNAUTHORIZED") {
-        setAccessToken(null);
-        clearUser();
-        setTasks([]);
-        setSelectedTaskId(null);
-        setFeedback({
-          title: "Session expired",
-          message: "Please sign in again to continue working.",
-          tone: "error",
-        });
-        return;
-      }
-
-      const message = error.message.toLowerCase();
-
-      if (message.includes("cannot reach backend")) {
-        setFeedback({
-          title: "Can't connect to the server",
-          message: "Make sure the Spring backend is running and reachable from the app.",
-          tone: "error",
-        });
-        return;
-      }
-
-      if (message.includes("bad credentials") || message.includes("invalid")) {
-        setFeedback({
-          title: "Sign in failed",
-          message: "Check your username and password and try again.",
-          tone: "error",
-        });
-        return;
-      }
-
-      if (message.includes("403")) {
-        setFeedback({
-          title: "Access denied",
-          message: "You don't have permission to perform this action.",
-          tone: "error",
-        });
-        return;
-      }
-
-      if (message.includes("404")) {
-        setFeedback({
-          title: "Not found",
-          message: "That item could not be found.",
-          tone: "error",
-        });
-        return;
-      }
-
-      setFeedback({
-        title: "Something went wrong",
-        message: error.message,
+      const normalized = normalizeApiError(error);
+      setNotice({
+        title: "Couldn't create project",
+        message: normalized.message,
         tone: "error",
       });
-      return;
     }
-
-    setFeedback({
-      title: "Something went wrong",
-      message: "Please try again.",
-      tone: "error",
-    });
   }
 
-  function dismissFeedback() {
-    if (!feedback || feedbackClosing) {
-      return;
+  async function handleCreateTask(values: {
+    title: string;
+    description: string;
+    status: Task["status"];
+    priority: Task["priority"];
+    dueDate: string | null;
+    projectId: number | null;
+  }) {
+    try {
+      await createTask.mutateAsync(values);
+      closeTaskModal();
+      window.setTimeout(() => {
+        setNotice({
+          title: "Task created",
+          message: `${values.title} was added to your queue.`,
+          tone: "success",
+        });
+      }, 180);
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      setNotice({
+        title: "Couldn't create task",
+        message: normalized.message,
+        tone: "error",
+      });
     }
-
-    setFeedbackClosing(true);
   }
 
-  function handleTaskFormChange<K extends keyof TaskFormState>(field: K, value: TaskFormState[K]) {
-    setTaskForm((current) => ({ ...current, [field]: value }));
-  }
-
-  function handleAuthFormChange(
-    field: "username" | "email" | "password" | "confirmPassword",
-    value: string,
-  ) {
-    setAuthForm((current) => ({ ...current, [field]: value }));
-  }
-
-  function handleDetailDraftChange(field: "title" | "description", value: string) {
-    setDetailDraft((current) => ({ ...current, [field]: value }));
-  }
-
-  if (!user) {
-    return (
-      <>
-        {feedback ? (
-          <FeedbackToast closing={feedbackClosing} feedback={feedback} onDismiss={dismissFeedback} />
-        ) : null}
-        <AuthScreen
-          authForm={authForm}
-          authLoading={authLoading}
-          authMode={authMode}
-          onAuthFormChange={handleAuthFormChange}
-          onModeChange={setAuthMode}
-          onSubmit={handleAuthSubmit}
-        />
-      </>
-    );
-  }
+  const projects = projectsQuery.data ?? [];
+  const allTasks = allTasksQuery.data ?? [];
 
   return (
     <>
-      {feedback ? (
-        <FeedbackToast closing={feedbackClosing} feedback={feedback} onDismiss={dismissFeedback} />
-      ) : null}
-      <main className="app-shell">
-        <Sidebar
-          activeFilter={activeFilter}
-          onFilterChange={setActiveFilter}
-          onLogout={() => void handleLogout()}
-          user={user}
-        />
-
-        {view === "list" ? (
-          <TaskListView
-            activeFilter={activeFilter}
-            createdTaskId={createdTaskId}
-            groupedTasks={groupedTasks}
-            hoveredTaskId={hoveredTaskId}
-            onFilterChange={setActiveFilter}
-            onHoverChange={setHoveredTaskId}
-            onOpenContextMenu={(taskId, x, y) => setContextMenu({ taskId, x, y })}
-            onOpenTask={handleTaskOpen}
-            onOpenTaskModal={openTaskModal}
-            onQuickComplete={(taskId) => void handleQuickComplete(taskId)}
-            taskLoading={taskLoading}
-          />
-        ) : (
-          <TaskDetailView
-            deleteSaving={deleteSaving}
-            descriptionTextareaRef={descriptionTextareaRef}
-            detailDraft={detailDraft}
-            detailSaving={detailSaving}
-            onBack={() => setView("list")}
-            onDelete={() => {
-              if (selectedTask) {
-                openDeleteConfirm(selectedTask.id);
+      <Routes>
+        <Route element={<AuthPage />} path="/auth" />
+        <Route
+          element={
+            <AppLayout
+              detailOpen={detailOpen}
+              detailMounted={detailMounted}
+              onCloseDetail={closeDetail}
+              onToast={showToast}
+              projects={projects}
+              selectedTask={selectedTask}
+              sidebar={
+                <Sidebar
+                  allTasks={allTasks}
+                  onLogout={() => void handleLogout()}
+                  onOpenNewProject={openProjectModal}
+                  onToggleArchived={() => setShowArchived((current) => !current)}
+                  projects={projects}
+                  showArchived={showArchived}
+                  user={user ?? "Workspace"}
+                />
               }
-            }}
-            onDetailBlur={(field) => void handleDetailBlur(field)}
-            onDetailDraftChange={handleDetailDraftChange}
-            onTaskFieldUpdate={(field, value) => void handleTaskFieldUpdate(field, value)}
-            selectedTask={selectedTask}
-          />
-        )}
-      </main>
+            >
+              <Routes>
+                <Route element={<Navigate replace to="/tasks" />} path="/" />
+                <Route
+                  element={
+                    <WorkspaceView
+                      allProjects={projects}
+                      onOpenTask={openDetail}
+                      onOpenTaskModal={openTaskModal}
+                    />
+                  }
+                  path="/tasks"
+                />
+                <Route element={<TaskFullView onToast={showToast} />} path="/tasks/:taskId" />
+                <Route
+                  element={
+                    <WorkspaceView
+                      allProjects={projects}
+                      onOpenTask={openDetail}
+                      onOpenTaskModal={openTaskModal}
+                    />
+                  }
+                  path="/projects/:projectId"
+                />
+              </Routes>
+            </AppLayout>
+          }
+          path="*"
+        />
+      </Routes>
+
+      <NewProjectModal
+        closing={closingProjectModal}
+        loading={createProject.isPending}
+        onClose={closeProjectModal}
+        onSubmit={handleCreateProject}
+        open={showProjectModal}
+      />
 
       <NewTaskModal
-        closing={taskModalClosing}
+        closing={closingTaskModal}
+        initialProjectId={newTaskProjectId}
+        loading={createTask.isPending}
         onClose={closeTaskModal}
-        onSubmit={handleTaskCreate}
-        onTaskFormChange={handleTaskFormChange}
-        open={taskModalOpen}
-        taskForm={taskForm}
-        taskCreateSuccess={taskCreateSuccess}
-        taskSaving={taskSaving}
+        onSubmit={handleCreateTask}
+        open={showTaskModal}
+        projects={projects}
       />
 
-      <TaskContextMenu
-        contextMenu={contextMenu}
-        deleteSaving={deleteSaving}
-        onDelete={openDeleteConfirm}
-      />
-
-      <DeleteConfirmModal
-        deleteSaving={deleteSaving}
-        onCancel={closeDeleteConfirm}
-        onConfirm={async () => {
-          await handleTaskDelete(deleteConfirmTaskId ?? undefined);
-          setDeleteConfirmTaskId(null);
-        }}
-        open={deleteConfirmTaskId !== null}
-      />
+      {notice ? <Toast notice={notice} onDismiss={() => setNotice(null)} /> : null}
     </>
   );
 }
 
-export default App;
-
-function matchesActiveFilter(task: Task, activeFilter: TaskFilter) {
-  switch (activeFilter) {
-    case "OPEN":
-    case "IN_PROGRESS":
-    case "DONE":
-    case "CANCELLED":
-      return task.status === activeFilter;
-    case "HIGH_PRIORITY":
-      return task.priority === "HIGH";
-    case "ALL":
-    default:
-      return true;
-  }
+function Toast({ notice, onDismiss }: { notice: Notice; onDismiss: () => void }) {
+  return (
+    <div className="fixed bottom-5 right-5 z-[70] max-w-sm rounded-2xl border border-white/10 bg-[#171728] px-4 py-3 shadow-2xl">
+      <div className="flex items-start gap-3">
+        <span
+          className={[
+            "mt-1 h-2.5 w-2.5 rounded-full",
+            notice.tone === "error" ? "bg-red-400" : "bg-emerald-400",
+          ].join(" ")}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-white">{notice.title}</p>
+          <p className="mt-1 text-sm text-white/55">{notice.message}</p>
+        </div>
+        <button className="text-sm text-white/40 hover:text-white" onClick={onDismiss} type="button">
+          x
+        </button>
+      </div>
+    </div>
+  );
 }
+
+export default AppShell;

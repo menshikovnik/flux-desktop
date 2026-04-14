@@ -3,7 +3,7 @@ import { Check, X } from "lucide-react";
 import { Priority, Status } from "../api";
 import { PRIORITY_OPTIONS, STATUS_OPTIONS } from "../app/constants";
 import { formatPriority, formatStatus } from "../app/formatters";
-import { TaskFormState } from "../app/types";
+import { Project, TaskFormState } from "../app/types";
 import { CustomSelect } from "./CustomSelect";
 
 type NewTaskModalProps = {
@@ -12,6 +12,7 @@ type NewTaskModalProps = {
   taskCreateSuccess: boolean;
   taskSaving: boolean;
   taskForm: TaskFormState;
+  projects: Project[];
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onTaskFormChange: <K extends keyof TaskFormState>(field: K, value: TaskFormState[K]) => void;
@@ -23,6 +24,7 @@ export function NewTaskModal({
   taskCreateSuccess,
   taskSaving,
   taskForm,
+  projects,
   onClose,
   onSubmit,
   onTaskFormChange,
@@ -80,6 +82,23 @@ export function NewTaskModal({
               onChange={(event) => onTaskFormChange("description", event.target.value)}
               rows={4}
               value={taskForm.description}
+            />
+          </label>
+
+          <label>
+            Project
+            <CustomSelect
+              onChange={(value) => onTaskFormChange("projectId", value as TaskFormState["projectId"])}
+              options={[
+                { value: "ALL", label: "No project" },
+                ...projects
+                  .filter((project) => !project.isArchived)
+                  .map((project) => ({
+                    value: project.id,
+                    label: project.name,
+                  })),
+              ]}
+              value={taskForm.projectId}
             />
           </label>
 

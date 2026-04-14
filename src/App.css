@@ -1,11 +1,516 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap");
+@import "tailwindcss";
 
-@import "./styles/base.css";
-@import "./styles/auth.css";
-@import "./styles/forms.css";
-@import "./styles/layout.css";
-@import "./styles/task-list.css";
-@import "./styles/task-detail.css";
-@import "./styles/overlays.css";
-@import "./styles/animations.css";
-@import "./styles/responsive.css";
+:root {
+  color: rgba(255, 255, 255, 0.92);
+  background: #0f0f1a;
+  font-family:
+    "DM Sans",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+  background: #0f0f1a;
+}
+
+body {
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+a,
+select,
+summary,
+[role="button"] {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  background-clip: padding-box;
+}
+
+.modal-overlay {
+  animation: modalFadeIn 180ms ease forwards;
+}
+
+.modal-overlay.is-closing {
+  animation: modalFadeOut 180ms ease forwards;
+}
+
+.modal-surface {
+  animation: modalScaleIn 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform-origin: center;
+}
+
+.modal-surface.is-closing {
+  animation: modalScaleOut 180ms ease forwards;
+}
+
+.task-detail-panel {
+  will-change: transform, opacity, width;
+}
+
+.task-detail-panel--open {
+  animation: taskDetailPanelIn 280ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.task-detail-backdrop {
+  will-change: opacity;
+}
+
+.app-shell-sidebar {
+  will-change: width, transform;
+  transition:
+    width 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-shell-sidebar--visible {
+  width: 280px;
+  transform: translateX(0);
+}
+
+.app-shell-sidebar--hidden {
+  width: 84px;
+  transform: translateX(0);
+}
+
+.task-detail-panel-enter,
+.task-detail-panel-exit {
+  will-change: transform, opacity;
+}
+
+.task-detail-panel-enter {
+  animation: taskDetailPanelEnter 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.task-detail-panel-exit {
+  animation: taskDetailPanelExit 220ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.task-detail-scroll {
+  scrollbar-width: none;
+}
+
+.task-detail-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.task-full-meta-sidebar {
+  will-change: width, opacity, transform;
+  transition:
+    width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 200ms ease,
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 180ms ease;
+}
+
+.task-full-meta-sidebar--open {
+  width: 264px;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.task-full-meta-sidebar--closed {
+  width: 0;
+  opacity: 0;
+  transform: translateX(28px);
+  border-color: transparent;
+}
+
+.task-full-view--opening {
+  animation: taskFullViewIn 260ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.task-full-view--closing {
+  animation: taskFullViewOut 220ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.tab-strip {
+  gap: 4px;
+}
+
+.tab-strip__underline {
+  box-shadow: 0 0 18px rgba(108, 99, 255, 0.32);
+}
+
+.auth-page-root {
+  font-family: "DM Sans", sans-serif;
+}
+
+.auth-page-root.is-entering .auth-page-card {
+  animation: authCardLiftOut 0.82s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.auth-page-root.is-entering .auth-page-grid {
+  animation: authGridDrift 0.9s ease forwards;
+}
+
+.auth-page-root.is-entering .auth-page-orb--primary {
+  animation: authOrbPrimaryExit 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.auth-page-root.is-entering .auth-page-orb--secondary {
+  animation: authOrbSecondaryExit 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.auth-page-grid {
+  background-image:
+    linear-gradient(rgba(108, 99, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(108, 99, 255, 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.auth-page-orb {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(70px);
+  pointer-events: none;
+}
+
+.auth-page-orb--primary {
+  top: -100px;
+  left: -80px;
+  width: 420px;
+  height: 420px;
+  background: rgba(108, 99, 255, 0.13);
+}
+
+.auth-page-orb--secondary {
+  right: -40px;
+  bottom: -60px;
+  width: 300px;
+  height: 300px;
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.auth-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 999px;
+  animation: authSpin 0.7s linear infinite;
+}
+
+.auth-entry-transition {
+  animation: authEntryFade 0.55s ease forwards;
+}
+
+.auth-entry-transition__veil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top, rgba(108, 99, 255, 0.22), transparent 34%),
+    rgba(8, 8, 17, 0.82);
+  backdrop-filter: blur(12px);
+}
+
+.auth-entry-transition__card {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  min-width: min(420px, calc(100vw - 32px));
+  padding: 28px 32px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+  background: rgba(20, 20, 34, 0.88);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: authEntryCardIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.auth-entry-transition__glow {
+  position: absolute;
+  inset: auto -30% -45% auto;
+  width: 260px;
+  height: 260px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(108, 99, 255, 0.28), transparent 70%);
+  animation: authEntryGlow 1.2s ease-out forwards;
+}
+
+.auth-entry-transition__pulse {
+  position: absolute;
+  inset: -30%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(108, 99, 255, 0.18), transparent 52%);
+  opacity: 0;
+  animation: authEntryPulse 1s ease-out 0.08s forwards;
+}
+
+.auth-entry-transition__eyebrow {
+  position: relative;
+  z-index: 1;
+  display: block;
+  margin-bottom: 10px;
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.auth-entry-transition__card strong {
+  position: relative;
+  z-index: 1;
+  display: block;
+  font-family: "Syne", sans-serif;
+  font-size: 28px;
+  line-height: 1.1;
+  color: white;
+}
+
+.auth-entry-transition__card p {
+  position: relative;
+  z-index: 1;
+  max-width: 34ch;
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.56);
+  line-height: 1.6;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes taskDetailPanelIn {
+  from {
+    opacity: 0;
+    transform: translateX(32px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes taskDetailPanelEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(34px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes taskDetailPanelExit {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(34px, 0, 0);
+  }
+}
+
+@keyframes taskFullViewIn {
+  from {
+    opacity: 0;
+    transform: translate3d(22px, 10px, 0) scale(0.985);
+    filter: blur(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes taskFullViewOut {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-14px, -8px, 0) scale(0.982);
+    filter: blur(8px);
+  }
+}
+
+@keyframes authSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes authEntryFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes authEntryCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(32px) scale(0.9) rotateX(10deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.015) rotateX(0deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes authEntryGlow {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes authEntryPulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes authCardLiftOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateX(0deg);
+    filter: blur(0);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1.015) rotateX(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.9) rotateX(10deg);
+    filter: blur(8px);
+  }
+}
+
+@keyframes authGridDrift {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0.5;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes authOrbPrimaryExit {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0.4;
+    transform: translate3d(-40px, -36px, 0) scale(1.15);
+  }
+}
+
+@keyframes authOrbSecondaryExit {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0.3;
+    transform: translate3d(30px, 26px, 0) scale(1.1);
+  }
+}
+
+@keyframes authPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modalFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes modalScaleIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modalScaleOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+}
