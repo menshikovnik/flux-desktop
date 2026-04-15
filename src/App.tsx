@@ -15,6 +15,7 @@ import { useProjects } from "./features/projects/hooks/useProjects";
 import { ConfirmDeleteModal } from "./features/tasks/components/ConfirmDeleteModal";
 import { NewTaskModal } from "./features/tasks/components/NewTaskModal";
 import { TaskList } from "./features/tasks/components/TaskList";
+import { TaskBoard } from "./features/tasks/components/TaskBoard";
 import { TaskFullView } from "./features/tasks/components/TaskFullView";
 import { getAllTasks } from "./features/tasks/api/tasksApi";
 import { useCreateTask } from "./features/tasks/hooks/useCreateTask";
@@ -247,9 +248,13 @@ function WorkspaceView({
 
       <ProjectStatsBar done={stats.done} inProgress={stats.inProgress} open={stats.open} total={stats.total} />
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className={["min-h-0 flex-1", activeTab === "board" ? "overflow-hidden" : "overflow-y-auto"].join(" ")}>
         {activeTab === "board" ? (
-          <ComingSoonPanel label="Board" />
+          <TaskBoard
+            loading={taskQuery.isLoading}
+            onOpenTask={handleOpenTask}
+            tasks={tasks}
+          />
         ) : activeTab === "timeline" ? (
           <ComingSoonPanel label="Timeline" />
         ) : (
@@ -343,7 +348,7 @@ function AppShell() {
     window.setTimeout(() => {
       setDetailMounted(false);
       setSelectedTask(null);
-    }, 300);
+    }, 420);
   }
 
   async function handleLogout() {

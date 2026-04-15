@@ -199,10 +199,10 @@ export function TaskDetailPanel({
     <>
       <div
         className={[
-          "fixed inset-0 z-30 bg-black/40 transition-[opacity,backdrop-filter] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "fixed inset-0 z-30 bg-black/50 backdrop-blur-[2px] transition-opacity duration-[380ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
           open
-            ? "pointer-events-auto opacity-100 backdrop-blur-[2px]"
-            : "pointer-events-none opacity-0 backdrop-blur-0",
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0",
         ].join(" ")}
         onClick={onClose}
         role="presentation"
@@ -210,18 +210,13 @@ export function TaskDetailPanel({
 
       <aside
         className={[
-          "fixed right-0 top-0 z-40 h-screen w-[400px] border-l border-white/[0.07] bg-[#0e0e1c] shadow-2xl transition-[transform,opacity,filter] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform",
-          open
-            ? "translate-x-0 opacity-100 blur-0"
-            : "translate-x-[104%] opacity-0 blur-[8px]",
+          "fixed right-0 top-0 z-40 h-screen w-[400px] border-l border-white/[0.07] bg-[#0e0e1c] shadow-2xl transition-transform duration-[380ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform",
+          open ? "translate-x-0" : "translate-x-full",
         ].join(" ")}
       >
         <div className="flex h-full flex-col">
           <div
-            className={[
-              "sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.07] bg-[#0e0e1c]/95 px-5 py-4 backdrop-blur-xl transition-[transform,opacity] duration-300 delay-75 ease-[cubic-bezier(0.22,1,0.36,1)]",
-              open ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
-            ].join(" ")}
+            className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.07] bg-[#0e0e1c]/95 px-5 py-4 backdrop-blur-xl"
           >
             <div className="flex items-center gap-3">
               <span className="text-xs uppercase tracking-[0.2em] text-white/35">
@@ -263,10 +258,7 @@ export function TaskDetailPanel({
           </div>
 
           <div
-            className={[
-              "task-detail-scroll flex-1 overflow-y-auto px-5 py-5 transition-[transform,opacity] duration-300 delay-100 ease-[cubic-bezier(0.22,1,0.36,1)]",
-              open ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
-            ].join(" ")}
+            className="task-detail-scroll flex-1 overflow-y-auto px-5 py-5"
           >
             <textarea
               className="w-full resize-none overflow-hidden whitespace-pre-wrap break-words bg-transparent text-[18px] font-semibold leading-7 text-white outline-none"
