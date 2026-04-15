@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  color: rgba(255, 255, 255, 0.92);
-  background: #0f0f1a;
+  color: rgba(255, 255, 255, 0.88);
+  background: #111113;
   font-family:
     "DM Sans",
     ui-sans-serif,
@@ -18,7 +18,7 @@ body,
 #root {
   min-height: 100%;
   margin: 0;
-  background: #0f0f1a;
+  background: #111113;
 }
 
 body {
@@ -27,6 +27,21 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+body,
+button,
+a,
+select,
+summary,
+[role="button"] {
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  user-select: text;
 }
 
 button,
@@ -59,20 +74,20 @@ select:disabled {
 }
 
 .modal-overlay {
-  animation: modalFadeIn 180ms ease forwards;
+  animation: modalFadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .modal-overlay.is-closing {
-  animation: modalFadeOut 180ms ease forwards;
+  animation: modalFadeOut 120ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 .modal-surface {
-  animation: modalScaleIn 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: modalScaleIn 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transform-origin: center;
 }
 
 .modal-surface.is-closing {
-  animation: modalScaleOut 180ms ease forwards;
+  animation: modalScaleOut 120ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 .task-detail-panel {
@@ -80,7 +95,7 @@ select:disabled {
 }
 
 .task-detail-panel--open {
-  animation: taskDetailPanelIn 280ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: taskDetailPanelIn 200ms cubic-bezier(0.05, 0.7, 0.1, 1) forwards;
 }
 
 .task-detail-backdrop {
@@ -90,18 +105,18 @@ select:disabled {
 .app-shell-sidebar {
   will-change: width, transform;
   transition:
-    width 260ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.app-shell-sidebar--visible {
-  width: 280px;
+    width 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
   transform: translateX(0);
 }
 
-.app-shell-sidebar--hidden {
-  width: 84px;
-  transform: translateX(0);
+.app-shell-sidebar.is-resizing,
+.is-resizing {
+  transition: none !important;
+}
+
+.is-task-detail-resizing .task-detail-resizable {
+  transition: none !important;
 }
 
 .task-detail-panel-enter,
@@ -110,11 +125,11 @@ select:disabled {
 }
 
 .task-detail-panel-enter {
-  animation: taskDetailPanelEnter 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: taskDetailPanelEnter 200ms cubic-bezier(0.05, 0.7, 0.1, 1) forwards;
 }
 
 .task-detail-panel-exit {
-  animation: taskDetailPanelExit 220ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: taskDetailPanelExit 150ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 .task-detail-scroll {
@@ -126,13 +141,56 @@ select:disabled {
   height: 0;
 }
 
+.task-checkbox {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  background: transparent;
+  display: inline-grid;
+  place-content: center;
+  transition:
+    border-color 90ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 90ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.task-checkbox::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  transform: scale(0);
+  transition: transform 90ms cubic-bezier(0.16, 1, 0.3, 1);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.task-checkbox:hover {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.task-checkbox:checked::before {
+  transform: scale(1);
+}
+
+.task-checkbox:focus-visible {
+  outline: 1px solid rgba(255, 255, 255, 0.24);
+  outline-offset: 2px;
+}
+
+.task-delete-toast {
+  animation: taskDeleteToastIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 .task-full-meta-sidebar {
   will-change: width, opacity, transform;
   transition:
-    width 240ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 200ms ease,
-    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 180ms ease;
+    width 200ms cubic-bezier(0.05, 0.7, 0.1, 1),
+    opacity 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 200ms cubic-bezier(0.05, 0.7, 0.1, 1),
+    border-color 100ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .task-full-meta-sidebar--open {
@@ -149,11 +207,11 @@ select:disabled {
 }
 
 .task-full-view--opening {
-  animation: taskFullViewIn 260ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: taskFullViewIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .task-full-view--closing {
-  animation: taskFullViewOut 220ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: taskFullViewOut 140ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 .tab-strip {
@@ -161,14 +219,14 @@ select:disabled {
 }
 
 .tab-strip__underline {
-  box-shadow: 0 0 18px rgba(108, 99, 255, 0.32);
+  box-shadow: none;
 }
 
 .project-nav-item--new {
   position: relative;
   overflow: hidden;
   transform-origin: top center;
-  animation: projectNavItemIn 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: projectNavItemIn 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .project-nav-item--new::after {
@@ -179,11 +237,11 @@ select:disabled {
   border-radius: inherit;
   background: linear-gradient(90deg, rgba(108, 99, 255, 0.22), rgba(16, 185, 129, 0.13));
   opacity: 0;
-  animation: projectNavItemGlow 980ms ease-out both;
+  animation: projectNavItemGlow 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .project-nav-item--new > span:first-child {
-  animation: projectNavDotPop 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: projectNavDotPop 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .auth-page-root {
@@ -390,6 +448,17 @@ select:disabled {
   }
 }
 
+@keyframes taskDeleteToastIn {
+  from {
+    opacity: 0;
+    transform: translate3d(-50%, 10px, 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(-50%, 0, 0) scale(1);
+  }
+}
+
 @keyframes authSpin {
   to {
     transform: rotate(360deg);
@@ -565,7 +634,7 @@ select:disabled {
 @keyframes modalScaleIn {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.96);
+    transform: translateY(4px) scale(0.985);
   }
   to {
     opacity: 1;
@@ -580,6 +649,6 @@ select:disabled {
   }
   to {
     opacity: 0;
-    transform: translateY(10px) scale(0.97);
+    transform: translateY(3px) scale(0.985);
   }
 }

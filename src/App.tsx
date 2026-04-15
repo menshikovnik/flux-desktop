@@ -1,12 +1,11 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useQueries } from "@tanstack/react-query";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { QueryKey, useQueries, useQueryClient } from "@tanstack/react-query";
 import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Project, Task, logoutUser, normalizeApiError, setAccessToken } from "./api";
+import { Project, Status, Task, logoutUser, normalizeApiError, setAccessToken } from "./api";
 import "./App.css";
 import { useAuth } from "./auth";
 import { AuthPage } from "./components/AuthPage";
 import { NewProjectModal } from "./features/projects/components/NewProjectModal";
-import { ProjectStatsBar } from "./features/projects/components/ProjectStatsBar";
 import { ProjectTopbar } from "./features/projects/components/ProjectTopbar";
 import { useCreateProject } from "./features/projects/hooks/useCreateProject";
 import { useDeleteProject } from "./features/projects/hooks/useDeleteProject";
@@ -15,8 +14,9 @@ import { useProjects } from "./features/projects/hooks/useProjects";
 import { ConfirmDeleteModal } from "./features/tasks/components/ConfirmDeleteModal";
 import { NewTaskModal } from "./features/tasks/components/NewTaskModal";
 import { TaskList } from "./features/tasks/components/TaskList";
+import { TaskBoard } from "./features/tasks/components/TaskBoard";
 import { TaskFullView } from "./features/tasks/components/TaskFullView";
-import { getAllTasks } from "./features/tasks/api/tasksApi";
+import { deleteTask as deleteTaskRequest, getAllTasks } from "./features/tasks/api/tasksApi";
 import { useCreateTask } from "./features/tasks/hooks/useCreateTask";
 import { useTasks } from "./features/tasks/hooks/useTasks";
 import { AppLayout } from "./layout/AppLayout";
@@ -26,6 +26,18 @@ type Notice = {
   title: string;
   message: string;
   tone?: "error" | "success";
+};
+
+type UndoTaskToast = {
+  taskTitle: string;
+  onUndo: () => void;
+};
+
+type PendingTaskDelete = {
+  taskId: number;
+  timeoutId: number;
+  previousEntries: Array<[QueryKey, Task[] | undefined]>;
+  previousTask: Task;
 };
 
 function isToday(dateString?: string | null) {
@@ -77,11 +89,13 @@ function WorkspaceView({
   allProjects,
   onOpenTask,
   onOpenTaskModal,
+  onQuickCreateTask,
   onToast,
 }: {
   allProjects: Project[];
   onOpenTask: (task: Task) => void;
-  onOpenTaskModal: (projectId?: number) => void;
+  onOpenTaskModal: (projectId?: number, initialStatus?: Status) => void;
+  onQuickCreateTask: (values: { title: string; status: Status; projectId: number | null }) => Promise<void>;
   onToast: (toast: Notice) => void;
 }) {
   const navigate = useNavigate();
@@ -115,15 +129,6 @@ function WorkspaceView({
   }, [projectId, rawTasks, todayMode]);
   const tasks = useMemo(() => sortTasks(scopedTasks), [scopedTasks]);
 
-  const stats = useMemo(
-    () => ({
-      total: tasks.length,
-      open: tasks.filter((task) => task.status === "OPEN").length,
-      inProgress: tasks.filter((task) => task.status === "IN_PROGRESS").length,
-      done: tasks.filter((task) => task.status === "DONE").length,
-    }),
-    [tasks],
-  );
 
   const title = project ? project.name : todayMode ? "Today" : "My tasks";
   const subtitle = project
@@ -167,6 +172,14 @@ function WorkspaceView({
     onOpenTask(task);
   }
 
+  function handleQuickCreate(status: Status, titleValue: string) {
+    return onQuickCreateTask({
+      title: titleValue,
+      status,
+      projectId,
+    });
+  }
+
   async function handleDeleteProjectConfirm() {
     if (!project) {
       return;
@@ -204,58 +217,58 @@ function WorkspaceView({
         title={title}
       />
 
-      <div className="border-b border-white/10 px-6">
-        <div className="flex items-center justify-between gap-4 py-3">
-          <div className="tab-strip relative inline-flex" ref={tabsRailRef}>
-            <span
-              className="tab-strip__underline absolute bottom-0 h-0.5 rounded-full bg-[#6C63FF] transition-[transform,width,opacity] duration-300 ease-out"
-              style={{
-                width: `${tabUnderline.width}px`,
-                transform: `translateX(${tabUnderline.x}px)`,
-                opacity: tabUnderline.opacity,
-              }}
-            />
-            {(["list", "board", "timeline"] as const).map((tab) => (
-              <button
-                className={[
-                  "relative z-10 px-3 py-2 text-sm transition-colors",
-                  activeTab === tab ? "text-white" : "text-white/40 hover:text-white/70",
-                ].join(" ")}
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                ref={(node) => {
-                  tabsRef.current[tab] = node;
-                }}
-                type="button"
-              >
-                {tab === "list" ? "List" : tab === "board" ? "Board" : "Timeline"}
-              </button>
-            ))}
-          </div>
-
-          {todayMode ? (
+      <div className="flex items-center gap-2 border-b border-white/[0.06] px-5">
+        <div className="tab-strip relative inline-flex" ref={tabsRailRef}>
+          <span
+            className="tab-strip__underline absolute bottom-0 h-[1.5px] rounded-full bg-white/50 transition-[transform,width,opacity] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]"
+            style={{
+              width: `${tabUnderline.width}px`,
+              transform: `translateX(${tabUnderline.x}px)`,
+              opacity: tabUnderline.opacity,
+            }}
+          />
+          {(["list", "board", "timeline"] as const).map((tab) => (
             <button
-              className="text-xs text-white/35 transition hover:text-white/65"
-              onClick={() => setSearchParams({})}
+              className={[
+                "relative z-10 px-3 py-2.5 text-[13px] transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                activeTab === tab ? "text-white/90" : "text-white/30 hover:text-white/60",
+              ].join(" ")}
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              ref={(node) => { tabsRef.current[tab] = node; }}
               type="button"
             >
-              Exit Today view
+              {tab === "list" ? "List" : tab === "board" ? "Board" : "Timeline"}
             </button>
-          ) : <span />}
+          ))}
         </div>
+
+        {todayMode && (
+          <button
+            className="ml-auto text-[12px] text-white/25 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:text-white/55"
+            onClick={() => setSearchParams({})}
+            type="button"
+          >
+            Exit Today view
+          </button>
+        )}
       </div>
 
-      <ProjectStatsBar done={stats.done} inProgress={stats.inProgress} open={stats.open} total={stats.total} />
-
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className={["min-h-0 flex-1", activeTab === "board" ? "overflow-hidden" : "overflow-y-auto"].join(" ")}>
         {activeTab === "board" ? (
-          <ComingSoonPanel label="Board" />
+          <TaskBoard
+            loading={taskQuery.isLoading}
+            onOpenTask={handleOpenTask}
+            onQuickAdd={handleQuickCreate}
+            tasks={tasks}
+          />
         ) : activeTab === "timeline" ? (
           <ComingSoonPanel label="Timeline" />
         ) : (
           <TaskList
             loading={taskQuery.isLoading}
             onOpenTask={handleOpenTask}
+            onQuickAdd={handleQuickCreate}
             storageScope={projectId !== null ? `project:${projectId}` : todayMode ? "tasks:today" : "tasks:all"}
             tasks={tasks}
           />
@@ -282,7 +295,9 @@ function WorkspaceView({
 function AppShell() {
   const { user, clearUser } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [undoTaskToast, setUndoTaskToast] = useState<UndoTaskToast | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [closingProjectModal, setClosingProjectModal] = useState(false);
@@ -292,16 +307,108 @@ function AppShell() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailMounted, setDetailMounted] = useState(false);
   const [newTaskProjectId, setNewTaskProjectId] = useState<number | undefined>(undefined);
+  const [newTaskStatus, setNewTaskStatus] = useState<Status | undefined>(undefined);
   const [highlightedProjectId, setHighlightedProjectId] = useState<number | null>(null);
 
   const projectsQuery = useProjects();
   const allTasksQuery = useTasks();
   const createProject = useCreateProject();
   const createTask = useCreateTask();
+  const pendingTaskDeleteRef = useRef<PendingTaskDelete | null>(null);
 
   function showToast(toast: Notice) {
     setNotice(toast);
   }
+
+  function restoreTaskDelete(context: Pick<PendingTaskDelete, "previousEntries" | "previousTask" | "taskId">) {
+    context.previousEntries.forEach(([queryKey, data]) => {
+      queryClient.setQueryData(queryKey, data);
+    });
+    queryClient.setQueryData(["task", context.taskId], context.previousTask);
+  }
+
+  function commitPendingTaskDelete() {
+    const pending = pendingTaskDeleteRef.current;
+    if (!pending) {
+      return;
+    }
+
+    window.clearTimeout(pending.timeoutId);
+    pendingTaskDeleteRef.current = null;
+    void deleteTaskRequest(pending.taskId)
+      .then(() => queryClient.invalidateQueries({ queryKey: ["tasks"] }))
+      .catch((error) => {
+        restoreTaskDelete(pending);
+        const normalized = normalizeApiError(error);
+        setNotice({
+          title: "Couldn't delete task",
+          message: normalized.message,
+          tone: "error",
+        });
+      });
+  }
+
+  function handleUndoableDeleteTask(task: Task) {
+    commitPendingTaskDelete();
+
+    const previousEntries = queryClient.getQueriesData<Task[]>({ queryKey: ["tasks"] });
+    const previousTask = queryClient.getQueryData<Task>(["task", task.id]) ?? task;
+
+    previousEntries.forEach(([queryKey, tasks]) => {
+      if (!tasks) {
+        return;
+      }
+
+      queryClient.setQueryData<Task[]>(
+        queryKey,
+        tasks.filter((item) => item.id !== task.id),
+      );
+    });
+    queryClient.removeQueries({ queryKey: ["task", task.id] });
+    closeDetail();
+
+    const pending: PendingTaskDelete = {
+      taskId: task.id,
+      previousEntries,
+      previousTask,
+      timeoutId: window.setTimeout(() => {
+        pendingTaskDeleteRef.current = null;
+        setUndoTaskToast(null);
+        void deleteTaskRequest(task.id)
+          .then(() => queryClient.invalidateQueries({ queryKey: ["tasks"] }))
+          .catch((error) => {
+            restoreTaskDelete(pending);
+            const normalized = normalizeApiError(error);
+            setNotice({
+              title: "Couldn't delete task",
+              message: normalized.message,
+              tone: "error",
+            });
+          });
+      }, 5000),
+    };
+
+    pendingTaskDeleteRef.current = pending;
+    setUndoTaskToast({
+      taskTitle: task.title,
+      onUndo: () => {
+        window.clearTimeout(pending.timeoutId);
+        if (pendingTaskDeleteRef.current?.taskId === task.id) {
+          pendingTaskDeleteRef.current = null;
+        }
+        restoreTaskDelete(pending);
+        setUndoTaskToast(null);
+      },
+    });
+  }
+
+  useEffect(() => {
+    return () => {
+      if (pendingTaskDeleteRef.current) {
+        window.clearTimeout(pendingTaskDeleteRef.current.timeoutId);
+      }
+    };
+  }, []);
 
   function openProjectModal() {
     setClosingProjectModal(false);
@@ -313,11 +420,12 @@ function AppShell() {
     window.setTimeout(() => {
       setShowProjectModal(false);
       setClosingProjectModal(false);
-    }, 180);
+    }, 150);
   }
 
-  function openTaskModal(projectId?: number) {
+  function openTaskModal(projectId?: number, initialStatus?: Status) {
     setNewTaskProjectId(projectId);
+    setNewTaskStatus(initialStatus);
     setClosingTaskModal(false);
     setShowTaskModal(true);
   }
@@ -327,10 +435,15 @@ function AppShell() {
     window.setTimeout(() => {
       setShowTaskModal(false);
       setClosingTaskModal(false);
-    }, 180);
+    }, 150);
   }
 
   function openDetail(task: Task) {
+    if (detailOpen && selectedTask?.id === task.id) {
+      closeDetail();
+      return;
+    }
+
     setSelectedTask(task);
     setDetailMounted(true);
     window.requestAnimationFrame(() => {
@@ -343,7 +456,7 @@ function AppShell() {
     window.setTimeout(() => {
       setDetailMounted(false);
       setSelectedTask(null);
-    }, 300);
+    }, 200);
   }
 
   async function handleLogout() {
@@ -370,7 +483,7 @@ function AppShell() {
           message: `${project.name} is ready.`,
           tone: "success",
         });
-      }, 180);
+      }, 150);
       window.setTimeout(() => {
         setHighlightedProjectId((current) => (current === project.id ? null : current));
       }, 1200);
@@ -401,7 +514,7 @@ function AppShell() {
           message: `${values.title} was added to your queue.`,
           tone: "success",
         });
-      }, 180);
+      }, 150);
     } catch (error) {
       const normalized = normalizeApiError(error);
       setNotice({
@@ -409,6 +522,27 @@ function AppShell() {
         message: normalized.message,
         tone: "error",
       });
+    }
+  }
+
+  async function handleQuickCreateTask(values: { title: string; status: Status; projectId: number | null }) {
+    try {
+      await createTask.mutateAsync({
+        title: values.title,
+        description: "",
+        status: values.status,
+        priority: "MEDIUM",
+        dueDate: null,
+        projectId: values.projectId,
+      });
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      setNotice({
+        title: "Couldn't create task",
+        message: normalized.message,
+        tone: "error",
+      });
+      throw error;
     }
   }
 
@@ -444,6 +578,7 @@ function AppShell() {
               detailOpen={detailOpen}
               detailMounted={detailMounted}
               onCloseDetail={closeDetail}
+              onDeleteTask={handleUndoableDeleteTask}
               onToast={showToast}
               projects={projects}
               selectedTask={selectedTask}
@@ -469,19 +604,21 @@ function AppShell() {
                       allProjects={projects}
                       onOpenTask={openDetail}
                       onOpenTaskModal={openTaskModal}
+                      onQuickCreateTask={handleQuickCreateTask}
                       onToast={showToast}
                     />
                   }
                   path="/tasks"
                 />
-                <Route element={<TaskFullView onToast={showToast} />} path="/tasks/:taskId" />
-                <Route element={<TaskFullView onToast={showToast} />} path="/projects/:projectId/tasks/:taskId" />
+                <Route element={<TaskFullView onDeleteTask={handleUndoableDeleteTask} onToast={showToast} />} path="/tasks/:taskId" />
+                <Route element={<TaskFullView onDeleteTask={handleUndoableDeleteTask} onToast={showToast} />} path="/projects/:projectId/tasks/:taskId" />
                 <Route
                   element={
                     <WorkspaceView
                       allProjects={projects}
                       onOpenTask={openDetail}
                       onOpenTaskModal={openTaskModal}
+                      onQuickCreateTask={handleQuickCreateTask}
                       onToast={showToast}
                     />
                   }
@@ -505,6 +642,7 @@ function AppShell() {
       <NewTaskModal
         closing={closingTaskModal}
         initialProjectId={newTaskProjectId}
+        initialStatus={newTaskStatus}
         loading={createTask.isPending}
         onClose={closeTaskModal}
         onSubmit={handleCreateTask}
@@ -513,6 +651,7 @@ function AppShell() {
       />
 
       {notice ? <Toast notice={notice} onDismiss={() => setNotice(null)} /> : null}
+      {undoTaskToast ? <UndoToast toast={undoTaskToast} /> : null}
     </>
   );
 }
@@ -533,6 +672,23 @@ function Toast({ notice, onDismiss }: { notice: Notice; onDismiss: () => void })
         </div>
         <button className="text-sm text-white/40 hover:text-white" onClick={onDismiss} type="button">
           x
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function UndoToast({ toast }: { toast: UndoTaskToast }) {
+  return (
+    <div className="task-delete-toast fixed bottom-5 left-1/2 z-[90] -translate-x-1/2 rounded-lg border border-white/[0.08] bg-[#151516]/95 px-3 py-2 shadow-[0_18px_60px_rgba(0,0,0,0.42)] backdrop-blur-md">
+      <div className="flex items-center gap-3 text-[12px]">
+        <span className="text-white/68">Task deleted.</span>
+        <button
+          className="rounded-md px-2 py-1 font-medium text-white/82 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.06] hover:text-white"
+          onClick={toast.onUndo}
+          type="button"
+        >
+          Undo
         </button>
       </div>
     </div>

@@ -13,6 +13,7 @@ export type CreateTaskPayload = {
   description: string;
   priority: Priority;
   status: Status;
+  dueDate: string | null;
   projectId: number | null;
 };
 
@@ -54,6 +55,7 @@ export async function createTask(payload: CreateTaskPayload) {
     description: payload.description,
     priority: payload.priority,
     status: payload.status,
+    dueDate: payload.dueDate,
     projectId: payload.projectId,
   });
   return response.data;

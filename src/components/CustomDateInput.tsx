@@ -8,6 +8,7 @@ type CustomDateInputProps = {
   placeholder?: string;
   compact?: boolean;
   align?: "left" | "right";
+  showIcon?: boolean;
 };
 
 const WEEKDAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -65,6 +66,7 @@ export function CustomDateInput({
   placeholder = "Set due date",
   compact = false,
   align = "left",
+  showIcon = true,
 }: CustomDateInputProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const selectedDate = parseDate(value);
@@ -123,10 +125,10 @@ export function CustomDateInput({
   }, [viewDate]);
 
   const today = new Date();
-  const calendarWidth = compact ? "w-[248px]" : "w-[280px]";
-  const dayCellClassName = compact ? "h-8 w-8 text-[13px]" : "h-9 w-9 text-sm";
-  const blankCellClassName = compact ? "h-8 w-8" : "h-9 w-9";
-  const panelPadding = compact ? "p-2.5" : "p-3";
+  const calendarWidth = compact ? "w-[226px]" : "w-[264px]";
+  const dayCellClassName = compact ? "h-7 w-7 text-[12px]" : "h-8 w-8 text-sm";
+  const blankCellClassName = compact ? "h-7 w-7" : "h-8 w-8";
+  const panelPadding = compact ? "p-2" : "p-3";
   const panelAlignment = align === "right" ? "right-0" : "left-0";
   const headerMeta = compact ? "text-[11px]" : "text-xs";
 
@@ -134,13 +136,13 @@ export function CustomDateInput({
     <div className="relative" ref={rootRef}>
       <button
         className={[
-          "flex w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-sm text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] transition duration-200 hover:bg-white/[0.055] hover:text-white focus:border-[#6C63FF]/55 focus:outline-none",
+          "flex min-h-7 w-full items-center gap-2 rounded-md border border-white/[0.06] bg-white/[0.018] px-2 py-1 text-[12px] text-white transition duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-white/[0.10] hover:bg-white/[0.03] hover:text-white focus:border-white/[0.14] focus:outline-none",
           className,
         ].join(" ")}
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
-        <CalendarDays className="shrink-0 text-white/45" size={15} />
+        {showIcon ? <CalendarDays className="shrink-0 text-white/34" size={13} strokeWidth={1.6} /> : null}
         <span className={value ? "truncate text-white" : "truncate text-white/38"}>
           {value ? formatDateLabel(value) : placeholder}
         </span>
@@ -148,7 +150,7 @@ export function CustomDateInput({
 
       <div
         className={[
-          "absolute top-[calc(100%+8px)] z-50 origin-top overflow-hidden rounded-2xl border border-white/[0.08] bg-[#171727] shadow-[0_18px_60px_rgba(0,0,0,0.42)] ring-1 ring-white/[0.03] backdrop-blur-xl transition duration-200",
+          "absolute top-[calc(100%+6px)] z-50 origin-top overflow-hidden rounded-xl border border-white/[0.08] bg-[#171719] shadow-[0_18px_48px_rgba(0,0,0,0.44)] ring-1 ring-white/[0.025] backdrop-blur-xl transition duration-100 ease-[cubic-bezier(0.16,1,0.3,1)]",
           panelAlignment,
           calendarWidth,
           panelPadding,
@@ -159,43 +161,43 @@ export function CustomDateInput({
       >
         <div className="flex items-center justify-between">
           <button
-            className="flex h-8 w-8 items-center justify-center rounded-xl text-white/45 transition hover:bg-white/[0.05] hover:text-white"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-white/38 transition-colors duration-75 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.05] hover:text-white/72"
             onClick={() =>
               setViewDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))
             }
             type="button"
           >
-            <ChevronLeft size={16} />
+              <ChevronLeft size={14} strokeWidth={1.7} />
           </button>
 
           <div className="text-center">
-            <p className="text-sm font-medium text-white">
+            <p className="text-[12px] font-medium text-white/78">
               {new Intl.DateTimeFormat("en-US", {
                 month: "long",
                 year: "numeric",
               }).format(viewDate)}
             </p>
-            <p className={`${headerMeta} text-white/35`}>Pick a due date</p>
+            <p className={`${headerMeta} text-white/28`}>Due date</p>
           </div>
 
           <button
-            className="flex h-8 w-8 items-center justify-center rounded-xl text-white/45 transition hover:bg-white/[0.05] hover:text-white"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-white/38 transition-colors duration-75 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.05] hover:text-white/72"
             onClick={() =>
               setViewDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))
             }
             type="button"
           >
-            <ChevronRight size={16} />
+              <ChevronRight size={14} strokeWidth={1.7} />
           </button>
         </div>
 
-        <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] uppercase tracking-[0.14em] text-white/28">
+        <div className="mt-2.5 grid grid-cols-7 gap-0.5 text-center text-[9px] uppercase tracking-[0.12em] text-white/24">
           {WEEKDAY_LABELS.map((label) => (
             <span key={label}>{label}</span>
           ))}
         </div>
 
-        <div className="mt-2 grid grid-cols-7 gap-1">
+        <div className="mt-1.5 grid grid-cols-7 gap-0.5">
           {calendarCells.map((cell, index) => {
             if (!cell) {
               return <span className={blankCellClassName} key={`blank-${index}`} />;
@@ -207,12 +209,12 @@ export function CustomDateInput({
             return (
               <button
                 className={[
-                  `flex items-center justify-center rounded-xl transition ${dayCellClassName}`,
+                  `flex items-center justify-center rounded-md transition-colors duration-75 ease-[cubic-bezier(0.16,1,0.3,1)] ${dayCellClassName}`,
                   isSelected
-                    ? "bg-[#6C63FF] text-white shadow-[0_10px_30px_rgba(108,99,255,0.32)]"
+                    ? "bg-white/[0.13] text-white"
                     : isToday
-                      ? "border border-white/[0.14] text-white/90 hover:bg-white/[0.06]"
-                      : "text-white/62 hover:bg-white/[0.05] hover:text-white",
+                      ? "text-white/82 ring-1 ring-white/[0.13] hover:bg-white/[0.06]"
+                      : "text-white/55 hover:bg-white/[0.05] hover:text-white/82",
                 ].join(" ")}
                 key={toInputValue(cell)}
                 onClick={() => {
@@ -227,9 +229,9 @@ export function CustomDateInput({
           })}
         </div>
 
-        <div className="mt-3 flex items-center justify-between border-t border-white/[0.06] pt-2.5">
+        <div className="mt-2 flex items-center justify-between border-t border-white/[0.055] pt-2">
           <button
-            className="rounded-xl px-2.5 py-2 text-xs text-white/45 transition hover:bg-white/[0.05] hover:text-white"
+            className="rounded-md px-2 py-1.5 text-[11px] text-white/40 transition-colors duration-75 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.05] hover:text-white/72"
             onClick={() => {
               onChange(toInputValue(new Date()));
               setOpen(false);
@@ -239,7 +241,7 @@ export function CustomDateInput({
             Today
           </button>
           <button
-            className="inline-flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs text-white/45 transition hover:bg-white/[0.05] hover:text-white"
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-[11px] text-white/40 transition-colors duration-75 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.05] hover:text-white/72"
             onClick={() => {
               onChange("");
               setOpen(false);

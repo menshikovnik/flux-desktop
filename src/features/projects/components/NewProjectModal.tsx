@@ -1,5 +1,6 @@
-import { FormEvent, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Palette } from "lucide-react";
+import { CommandModal } from "../../../components/modal/CommandModal";
 
 const PRESET_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#3b82f6", "#ec4899"];
 
@@ -15,7 +16,17 @@ export function NewProjectModal({ open, closing, loading, onClose, onSubmit }: N
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState(PRESET_COLORS[0]);
+  const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
   const disabled = useMemo(() => loading || !name.trim(), [loading, name]);
+
+  useEffect(() => {
+    if (!descriptionRef.current) {
+      return;
+    }
+
+    descriptionRef.current.style.height = "auto";
+    descriptionRef.current.style.height = `${descriptionRef.current.scrollHeight}px`;
+  }, [description]);
 
   if (!open) {
     return null;
@@ -34,85 +45,71 @@ export function NewProjectModal({ open, closing, loading, onClose, onSubmit }: N
   }
 
   return (
-    <div className={`modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm${closing ? " is-closing" : ""}`}>
-      <div className={`modal-surface w-full max-w-xl rounded-[28px] border border-white/10 bg-[#151525] p-6 shadow-2xl${closing ? " is-closing" : ""}`}>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-white/35">Projects</p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">Create a new workspace</h2>
-            <p className="mt-2 text-sm text-white/55">
-              Projects are the main way to navigate Flux. Pick a color and give the space a clear
-              focus.
-            </p>
-          </div>
-          <button
-            className="rounded-xl border border-white/10 bg-white/5 p-2 text-white/60 transition hover:bg-white/10 hover:text-white"
-            onClick={onClose}
-            type="button"
-          >
-            <X size={16} />
-          </button>
-        </div>
+    <CommandModal closing={closing} eyebrow="Projects" onClose={onClose} open={open} title="New Project">
+          <form onSubmit={handleSubmit}>
+            <div className="px-5 py-4">
+              <input
+                autoFocus
+                className="w-full bg-transparent text-xl font-medium leading-7 text-white/88 outline-none placeholder:text-white/24"
+                maxLength={100}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Project name"
+                value={name}
+              />
 
-        <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
-          <label className="block space-y-2 text-sm text-white/70">
-            <span>Name</span>
-            <input
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-white/25 focus:border-[#6C63FF] focus:ring-2 focus:ring-[#6C63FF]/30"
-              maxLength={100}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Spring sync"
-              value={name}
-            />
-          </label>
-
-          <div className="space-y-2">
-            <span className="text-sm text-white/70">Color</span>
-            <div className="flex flex-wrap gap-3">
-              {PRESET_COLORS.map((preset) => (
-                <button
-                  aria-label={`Pick ${preset}`}
-                  className={[
-                    "h-10 w-10 rounded-full border-2 transition",
-                    color === preset ? "border-white scale-110" : "border-transparent hover:scale-105",
-                  ].join(" ")}
-                  key={preset}
-                  onClick={() => setColor(preset)}
-                  style={{ backgroundColor: preset }}
-                  type="button"
-                />
-              ))}
+              <textarea
+                className="mt-2 max-h-48 min-h-12 w-full resize-none overflow-hidden bg-transparent text-[13px] leading-5 text-white/52 outline-none placeholder:text-white/20"
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Add project details..."
+                ref={descriptionRef}
+                rows={2}
+                value={description}
+              />
             </div>
-          </div>
 
-          <label className="block space-y-2 text-sm text-white/70">
-            <span>Description</span>
-            <textarea
-              className="min-h-28 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-white/25 focus:border-[#6C63FF] focus:ring-2 focus:ring-[#6C63FF]/30"
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="Backend auth improvements, rollout tasks, polish."
-              value={description}
-            />
-          </label>
+            <div className="flex items-center justify-between gap-3 border-t border-white/[0.055] px-3 py-2.5">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <div className="flex min-h-7 items-center gap-1.5 rounded-md px-1.5 text-white/30">
+                  <Palette size={13} strokeWidth={1.6} />
+                  <span className="text-[12px] text-white/46">Color</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1">
+                  {PRESET_COLORS.map((preset) => (
+                    <button
+                      aria-label={`Pick ${preset}`}
+                      className={[
+                        "h-5 w-5 rounded-md border transition-all duration-100 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                        color === preset
+                          ? "scale-105 border-white/55 opacity-100"
+                          : "border-white/0 opacity-48 hover:scale-105 hover:opacity-90",
+                      ].join(" ")}
+                      key={preset}
+                      onClick={() => setColor(preset)}
+                      style={{ backgroundColor: preset }}
+                      type="button"
+                    />
+                  ))}
+                </div>
+              </div>
 
-          <div className="flex justify-end gap-3">
-            <button
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/75 transition hover:bg-white/10 hover:text-white"
-              onClick={onClose}
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              className="rounded-xl bg-[#6C63FF] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#7a72ff] disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={disabled}
-              type="submit"
-            >
-              {loading ? "Creating..." : "Create project"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] text-white/42 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.045] hover:text-white/70 active:duration-0"
+                  onClick={onClose}
+                  type="button"
+                >
+                  Cancel <kbd className="text-[10px] text-white/20">esc</kbd>
+                </button>
+                <button
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md bg-white/[0.10] px-2.5 text-[12px] font-medium text-white/82 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.14] active:duration-0 disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={disabled}
+                  type="submit"
+                >
+                  {loading ? "Creating" : "Create"} <kbd className="text-[10px] text-white/28">Enter</kbd>
+                </button>
+              </div>
+            </div>
+          </form>
+    </CommandModal>
   );
 }

@@ -1,4 +1,4 @@
-import { Task } from "../../../api";
+import { Status, Task } from "../../../api";
 import { TaskGroup } from "./TaskGroup";
 import { TaskRow } from "./TaskRow";
 
@@ -13,11 +13,13 @@ export function TaskList({
   tasks,
   loading,
   onOpenTask,
+  onQuickAdd,
   storageScope = "default",
 }: {
   tasks: Task[];
   loading: boolean;
   onOpenTask: (task: Task) => void;
+  onQuickAdd?: (status: Status, title: string) => Promise<void> | void;
   storageScope?: string;
 }) {
   if (loading) {
@@ -29,7 +31,7 @@ export function TaskList({
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-5 px-5 py-4">
       {STATUS_GROUPS.map((group) => {
         const groupTasks = tasks.filter((task) => task.status === group.key);
         if (groupTasks.length === 0) {
@@ -40,8 +42,10 @@ export function TaskList({
           <TaskGroup
             count={groupTasks.length}
             key={`${storageScope}:${group.key}`}
+            onQuickAdd={onQuickAdd}
+            status={group.key}
             storageScope={storageScope}
-            title={group.label}
+            title={group.label.toUpperCase()}
           >
             {groupTasks.map((task) => (
               <TaskRow key={task.id} onOpen={() => onOpenTask(task)} task={task} />

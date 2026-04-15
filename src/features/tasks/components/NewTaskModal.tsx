@@ -1,8 +1,9 @@
-import { FormEvent, PointerEvent, useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, CircleDot, Flag, UserRound } from "lucide-react";
 import { Priority, Project, Status } from "../../../api";
 import { CustomDateInput } from "../../../components/CustomDateInput";
 import { CustomSelect } from "../../../components/CustomSelect";
+import { CommandModal } from "../../../components/modal/CommandModal";
 
 export function NewTaskModal({
   open,
@@ -10,6 +11,7 @@ export function NewTaskModal({
   loading,
   projects,
   initialProjectId,
+  initialStatus,
   onClose,
   onSubmit,
 }: {
@@ -18,6 +20,7 @@ export function NewTaskModal({
   loading: boolean;
   projects: Project[];
   initialProjectId?: number;
+  initialStatus?: Status;
   onClose: () => void;
   onSubmit: (values: {
     title: string;
@@ -30,103 +33,39 @@ export function NewTaskModal({
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [status, setStatus] = useState<Status>("OPEN");
+  const [status, setStatus] = useState<Status>(initialStatus ?? "OPEN");
   const [priority, setPriority] = useState<Priority>("MEDIUM");
   const [dueDate, setDueDate] = useState("");
   const [projectId, setProjectId] = useState<string>("none");
-  const modalShellRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    originX: number;
-    originY: number;
-  } | null>(null);
-  const offsetRef = useRef({ x: 0, y: 0 });
-  const nextOffsetRef = useRef({ x: 0, y: 0 });
-  const animationFrameRef = useRef<number | null>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     setProjectId(initialProjectId ? String(initialProjectId) : "none");
   }, [initialProjectId, open]);
 
   useEffect(() => {
-    if (open) {
-      offsetRef.current = { x: 0, y: 0 };
-      nextOffsetRef.current = { x: 0, y: 0 };
-      if (modalShellRef.current) {
-        modalShellRef.current.style.transform = "translate3d(0px, 0px, 0)";
-      }
-    }
-  }, [open]);
+    setStatus(initialStatus ?? "OPEN");
+  }, [initialStatus, open]);
 
   useEffect(() => {
-    function commitDragFrame() {
-      animationFrameRef.current = null;
-      const nextOffset = nextOffsetRef.current;
-      offsetRef.current = nextOffset;
-      if (modalShellRef.current) {
-        modalShellRef.current.style.transform = `translate3d(${nextOffset.x}px, ${nextOffset.y}px, 0)`;
-      }
-    }
-
-    function handlePointerMove(event: globalThis.PointerEvent) {
-      const drag = dragRef.current;
-      if (!drag || event.pointerId !== drag.pointerId) {
-        return;
-      }
-
-      nextOffsetRef.current = {
-        x: drag.originX + event.clientX - drag.startX,
-        y: drag.originY + event.clientY - drag.startY,
-      };
-
-      if (animationFrameRef.current === null) {
-        animationFrameRef.current = window.requestAnimationFrame(commitDragFrame);
-      }
-    }
-
-    function handlePointerUp(event: globalThis.PointerEvent) {
-      if (dragRef.current?.pointerId === event.pointerId) {
-        dragRef.current = null;
-        if (animationFrameRef.current !== null) {
-          window.cancelAnimationFrame(animationFrameRef.current);
-          commitDragFrame();
-        }
-      }
-    }
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-      if (animationFrameRef.current !== null) {
-        window.cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, []);
-
-  if (!open) {
-    return null;
-  }
-
-  function handleDragStart(event: PointerEvent<HTMLDivElement>) {
-    if (event.button !== 0) {
+    if (!descriptionRef.current) {
       return;
     }
 
-    dragRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: offsetRef.current.x,
-      originY: offsetRef.current.y,
-    };
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    descriptionRef.current.style.height = "auto";
+    descriptionRef.current.style.height = `${descriptionRef.current.scrollHeight}px`;
+  }, [description]);
+
+  const activeProject = useMemo(
+    () =>
+      projectId === "none"
+        ? null
+        : projects.find((project) => String(project.id) === projectId) ?? null,
+    [projectId, projects],
+  );
+
+  if (!open) {
+    return null;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -142,97 +81,92 @@ export function NewTaskModal({
 
     setTitle("");
     setDescription("");
-    setStatus("OPEN");
+    setStatus(initialStatus ?? "OPEN");
     setPriority("MEDIUM");
     setDueDate("");
     setProjectId(initialProjectId ? String(initialProjectId) : "none");
   }
 
   return (
-    <div className={`modal-overlay fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 px-6 py-10 pb-[340px] backdrop-blur-sm${closing ? " is-closing" : ""}`}>
-      <div
-        className="w-full max-w-2xl"
-        ref={modalShellRef}
-      >
-        <div className={`modal-surface w-full rounded-[28px] border border-white/10 bg-[#151525] p-6 shadow-2xl${closing ? " is-closing" : ""}`}>
-        <div className="flex items-start justify-between gap-4">
-          <div
-            className="min-w-0 flex-1 touch-none select-none cursor-grab active:cursor-grabbing"
-            onPointerDown={handleDragStart}
-          >
-            <p className="text-xs uppercase tracking-[0.24em] text-white/35">Tasks</p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">Capture the next step</h2>
-          </div>
-          <button
-            className="rounded-xl border border-white/10 bg-white/5 p-2 text-white/60 transition hover:bg-white/10 hover:text-white"
-            onClick={onClose}
-            type="button"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
-          <label className="block space-y-2 text-sm text-white/70">
-            <span>Title</span>
+    <CommandModal
+      closing={closing}
+      eyebrow={activeProject?.name ?? "No project"}
+      onClose={onClose}
+      open={open}
+      title="New Task"
+    >
+        <form onSubmit={handleSubmit}>
+          <div className="px-5 py-4">
             <input
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-white/25 focus:border-[#6C63FF] focus:ring-2 focus:ring-[#6C63FF]/30"
+              autoFocus
+              className="w-full bg-transparent text-xl font-medium leading-7 text-white/88 outline-none placeholder:text-white/24"
               onChange={(event) => setTitle(event.target.value)}
+              placeholder="Task title"
               required
               value={title}
             />
-          </label>
 
-          <label className="block space-y-2 text-sm text-white/70">
-            <span>Description</span>
             <textarea
-              className="min-h-28 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-white/25 focus:border-[#6C63FF] focus:ring-2 focus:ring-[#6C63FF]/30"
+              className="mt-2 max-h-48 min-h-12 w-full resize-none overflow-hidden bg-transparent text-[13px] leading-5 text-white/52 outline-none placeholder:text-white/20"
               onChange={(event) => setDescription(event.target.value)}
+              placeholder="Add details..."
+              ref={descriptionRef}
+              rows={2}
               value={description}
             />
-          </label>
+          </div>
 
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <label className="block space-y-2 text-sm text-white/70">
-              <span>Status</span>
-              <CustomSelect
-                onChange={(value) => setStatus(value as Status)}
-                options={[
-                  { value: "OPEN", label: "OPEN" },
-                  { value: "IN_PROGRESS", label: "IN PROGRESS" },
-                  { value: "DONE", label: "DONE" },
-                  { value: "CANCELLED", label: "CANCELLED" },
-                ]}
-                value={status}
-              />
-            </label>
+          <div className="flex items-center justify-between gap-3 border-t border-white/[0.055] px-3 py-2.5">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+              <MetaControl icon={<CircleDot size={13} strokeWidth={1.6} />}>
+                <CustomSelect
+                  onChange={(value) => setStatus(value as Status)}
+                  options={[
+                    { value: "OPEN", label: "Open" },
+                    { value: "IN_PROGRESS", label: "In progress" },
+                    { value: "DONE", label: "Done" },
+                    { value: "CANCELLED", label: "Cancelled" },
+                  ]}
+                  triggerClassName="border-transparent bg-transparent px-1.5 py-1 text-white/56 hover:border-transparent hover:bg-transparent focus:border-transparent"
+                  menuClassName="min-w-[150px]"
+                  value={status}
+                />
+              </MetaControl>
 
-            <label className="block space-y-2 text-sm text-white/70">
-              <span>Priority</span>
-              <CustomSelect
-                onChange={(value) => setPriority(value as Priority)}
-                options={[
-                  { value: "LOW", label: "LOW" },
-                  { value: "MEDIUM", label: "MEDIUM" },
-                  { value: "HIGH", label: "HIGH" },
-                ]}
-                value={priority}
-              />
-            </label>
+              <MetaControl icon={<Flag size={13} strokeWidth={1.6} />}>
+                <CustomSelect
+                  onChange={(value) => setPriority(value as Priority)}
+                  options={[
+                    { value: "LOW", label: "Low" },
+                    { value: "MEDIUM", label: "Medium" },
+                    { value: "HIGH", label: "High" },
+                  ]}
+                  triggerClassName="border-transparent bg-transparent px-1.5 py-1 text-white/56 hover:border-transparent hover:bg-transparent focus:border-transparent"
+                  menuClassName="min-w-[124px]"
+                  value={priority}
+                />
+              </MetaControl>
 
-            <label className="block space-y-2 text-sm text-white/70">
-              <span>Due date</span>
-              <CustomDateInput
-                className="rounded-2xl"
-                compact
-                onChange={setDueDate}
-                align="right"
-                value={dueDate}
-              />
-            </label>
+              <MetaControl icon={<UserRound size={13} strokeWidth={1.6} />}>
+                <button
+                  className="flex min-h-7 items-center gap-1.5 rounded-md px-1.5 py-1 text-[12px] text-white/46 outline-none transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] active:duration-0"
+                  type="button"
+                >
+                  L
+                </button>
+              </MetaControl>
 
-            <label className="block space-y-2 text-sm text-white/70">
-              <span>Project</span>
+              <MetaControl icon={<CalendarDays size={13} strokeWidth={1.6} />}>
+                <CustomDateInput
+                  className="border-transparent bg-transparent px-1.5 py-1 text-[12px] text-white/56 hover:border-transparent hover:bg-transparent focus:border-transparent"
+                  compact
+                  showIcon={false}
+                  onChange={setDueDate}
+                  align="right"
+                  value={dueDate}
+                />
+              </MetaControl>
+
               <CustomSelect
                 onChange={(value) => setProjectId(String(value))}
                 options={[
@@ -241,30 +175,39 @@ export function NewTaskModal({
                     .filter((project) => !project.archived)
                     .map((project) => ({ value: String(project.id), label: project.name })),
                 ]}
+                triggerClassName="max-w-[150px] border-transparent bg-transparent px-2 py-1 text-white/42 hover:border-transparent hover:bg-white/[0.045] focus:border-transparent"
+                menuClassName="min-w-[180px]"
                 value={projectId}
               />
-            </label>
-          </div>
+            </div>
 
-          <div className="flex justify-end gap-3">
-            <button
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/75 transition hover:bg-white/10 hover:text-white"
-              onClick={onClose}
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              className="rounded-xl bg-[#6C63FF] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#7a72ff] disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={loading || !title.trim()}
-              type="submit"
-            >
-              {loading ? "Creating..." : "Create task"}
-            </button>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <button
+                className="inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] text-white/42 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.045] hover:text-white/70 active:duration-0"
+                onClick={onClose}
+                type="button"
+              >
+                Cancel <kbd className="text-[10px] text-white/20">esc</kbd>
+              </button>
+              <button
+                className="inline-flex h-7 items-center gap-1.5 rounded-md bg-white/[0.10] px-2.5 text-[12px] font-medium text-white/82 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.14] active:duration-0 disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={loading || !title.trim()}
+                type="submit"
+              >
+                {loading ? "Creating" : "Create"} <kbd className="text-[10px] text-white/28">Enter</kbd>
+              </button>
+            </div>
           </div>
         </form>
-        </div>
-      </div>
+    </CommandModal>
+  );
+}
+
+function MetaControl({ children, icon }: { children: ReactNode; icon: ReactNode }) {
+  return (
+    <div className="group flex min-h-7 items-center gap-1 rounded-md px-1 text-white/30 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:text-white/52">
+      <span className="shrink-0">{icon}</span>
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }

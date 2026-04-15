@@ -55,7 +55,7 @@ export function CustomSelect({
       <button
         aria-expanded={open}
         className={[
-          "flex w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-left text-sm text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] transition duration-200 hover:bg-white/[0.055] hover:text-white focus:border-[#6C63FF]/55 focus:outline-none",
+          "flex min-h-7 w-full items-center gap-2 rounded-md border border-white/[0.06] bg-white/[0.018] px-2 py-1 text-left text-[12px] text-white/62 transition duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-white/[0.10] hover:bg-white/[0.03] hover:text-white/78 focus:border-white/[0.14] focus:outline-none",
           triggerClassName,
         ].join(" ")}
         onClick={() => setOpen((current) => !current)}
@@ -67,19 +67,20 @@ export function CustomSelect({
         <span className="min-w-0 flex-1 truncate">{selectedOption.label}</span>
         <ChevronDown
           className={[
-            "shrink-0 text-white/35 transition duration-200",
-            open ? "rotate-180 text-white/65" : "",
+            "shrink-0 text-white/28 transition duration-100 ease-[cubic-bezier(0.16,1,0.3,1)]",
+            open ? "rotate-180 text-white/52" : "",
           ].join(" ")}
-          size={15}
+          size={13}
+          strokeWidth={1.6}
         />
       </button>
 
       <div
         className={[
-          "absolute left-0 top-[calc(100%+8px)] z-50 flex min-w-full origin-top flex-col gap-1 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#171727] p-1 shadow-[0_18px_60px_rgba(0,0,0,0.42)] ring-1 ring-white/[0.03] backdrop-blur-xl transition duration-200",
+          "absolute left-0 top-[calc(100%+4px)] z-50 flex min-w-full origin-top flex-col gap-0.5 overflow-hidden rounded-lg border border-white/[0.07] bg-[#151516] p-1 shadow-[0_14px_34px_rgba(0,0,0,0.34)] ring-1 ring-white/[0.018] backdrop-blur-xl transition duration-100 ease-[cubic-bezier(0.16,1,0.3,1)]",
           open
-            ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
-            : "pointer-events-none -translate-y-1 scale-[0.98] opacity-0",
+            ? "pointer-events-auto translate-y-0 opacity-100"
+            : "pointer-events-none -translate-y-0.5 opacity-0",
           menuClassName,
         ].join(" ")}
         role="listbox"
@@ -90,10 +91,10 @@ export function CustomSelect({
           return (
             <button
               className={[
-                "flex min-h-[32px] w-full items-center gap-3 rounded-[12px] px-3 py-1.5 text-left transition",
+                "flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors duration-75 ease-[cubic-bezier(0.16,1,0.3,1)]",
                 isSelected
-                  ? "bg-[#6C63FF]/14 text-white"
-                  : "text-white/68 hover:bg-white/[0.05] hover:text-white",
+                  ? "bg-white/[0.045] text-white/76"
+                  : "text-white/48 hover:bg-white/[0.035] hover:text-white/72",
                 optionClassName,
               ].join(" ")}
               key={String(option.value)}
@@ -106,15 +107,16 @@ export function CustomSelect({
                 <span className="flex min-w-0 flex-1 items-center gap-2">
                   {option.leading ? <span className="shrink-0">{option.leading}</span> : null}
                   <span className="min-w-0">
-                    <span className="block whitespace-nowrap text-sm">{option.label}</span>
+                    <span className="block whitespace-nowrap text-[12px]">{option.label}</span>
                     {option.helper ? (
-                      <span className="block text-xs text-white/35">{option.helper}</span>
+                      <span className="block text-[11px] text-white/28">{option.helper}</span>
                     ) : null}
                   </span>
                 </span>
               <Check
-                className={isSelected ? "text-[#8d86ff]" : "opacity-0"}
-                size={14}
+                className={isSelected ? "text-white/44" : "opacity-0"}
+                size={12}
+                strokeWidth={1.7}
               />
             </button>
           );

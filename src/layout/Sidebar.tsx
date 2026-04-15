@@ -6,13 +6,9 @@ import { Project, Task } from "../api";
 import { ProjectNavItem } from "../features/projects/components/ProjectNavItem";
 
 function isToday(dateString?: string | null) {
-  if (!dateString) {
-    return false;
-  }
-
+  if (!dateString) return false;
   const today = new Date();
   const date = new Date(dateString);
-
   return (
     date.getFullYear() === today.getFullYear() &&
     date.getMonth() === today.getMonth() &&
@@ -59,98 +55,99 @@ export function Sidebar({
   );
 
   const todayCount = useMemo(() => allTasks.filter((task) => isToday(task.dueDate)).length, [allTasks]);
-  const activeProjects = projects.filter((project) => !project.archived);
-  const archivedProjects = projects.filter((project) => project.archived);
+  const activeProjects = projects.filter((p) => !p.archived);
+  const archivedProjects = projects.filter((p) => p.archived);
 
   return (
     <aside
       className={[
-        "flex h-screen shrink-0 flex-col bg-[#1a1a2e] py-4 transition-[width,padding] duration-300 ease-out",
-        collapsed ? "w-[84px] px-2" : "w-[280px] px-3",
+        "flex h-screen w-full min-w-0 shrink-0 flex-col bg-[#111113] py-2.5 transition-[padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        collapsed ? "px-1.5" : "px-1.5",
       ].join(" ")}
     >
+      {/* Logo + collapse */}
       <div
         className={[
-          "flex items-center pb-5 pt-1",
-          collapsed ? "flex-col gap-3 px-0" : "gap-3 px-3",
+          "mb-3 flex items-center",
+          collapsed ? "justify-center px-0 py-0.5" : "gap-2 px-1.5 py-0.5",
         ].join(" ")}
       >
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/5">
-          <img alt="Flux logo" className="h-7 w-7" src={fluxLogo} />
-        </div>
-        {collapsed ? null : (
-          <div className="min-w-0 flex-1">
-            <p className="text-lg font-semibold text-white">Flux</p>
-            <p className="text-xs text-white/35">Project-first task space</p>
+        {!collapsed && (
+          <div className="flex h-5 w-5 items-center justify-center rounded-md bg-white/[0.045]">
+            <img alt="Flux" className="h-3.5 w-3.5" src={fluxLogo} />
           </div>
         )}
+        {!collapsed && (
+          <span className="flex-1 text-[12px] font-semibold text-white/76">Flux</span>
+        )}
         <button
-          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/60 transition hover:bg-white/10 hover:text-white"
+          className={[
+            "flex h-6 w-6 items-center justify-center rounded-md text-white/28 transition hover:bg-white/[0.05] hover:text-white/64",
+            collapsed ? "mx-auto" : "",
+          ].join(" ")}
           onClick={onToggleCollapsed}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           type="button"
         >
-          {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          {collapsed ? <PanelLeftOpen size={14} strokeWidth={1.45} /> : <PanelLeftClose size={14} strokeWidth={1.45} />}
         </button>
       </div>
 
-      <div className={["space-y-1", collapsed ? "px-0" : "px-1"].join(" ")}>
+      {/* Main nav */}
+      <nav className={["space-y-0.5", collapsed ? "px-0" : "px-0"].join(" ")}>
         <NavLink
           className={({ isActive }) =>
             [
-              "group flex rounded-xl text-sm transition",
-              collapsed
-                ? "justify-center px-0 py-3"
-                : "items-center gap-3 px-3 py-2.5",
+              "flex items-center rounded-md text-[12px] transition-colors",
+              collapsed ? "justify-center py-1.5" : "gap-2 px-2 py-[5px]",
               isActive && location.search !== "?view=today"
-                ? "bg-white/10 text-white"
-                : "text-white/70 hover:bg-white/5 hover:text-white",
+                ? "bg-white/[0.08] text-white/90"
+                : "text-white/45 hover:bg-white/[0.05] hover:text-white/75",
             ].join(" ")
           }
           title="My tasks"
           to="/tasks"
         >
-          <LayoutGrid size={16} />
-          {collapsed ? null : <span>My tasks</span>}
+          <LayoutGrid size={14} strokeWidth={1.45} />
+          {!collapsed && <span>My tasks</span>}
         </NavLink>
+
         <NavLink
           className={() =>
             [
-              "group flex rounded-xl text-sm transition",
-              collapsed
-                ? "justify-center px-0 py-3"
-                : "items-center gap-3 px-3 py-2.5",
+              "flex items-center rounded-md text-[12px] transition-colors",
+              collapsed ? "justify-center py-1.5" : "gap-2 px-2 py-[5px]",
               location.pathname === "/tasks" && location.search === "?view=today"
-                ? "bg-white/10 text-white"
-                : "text-white/70 hover:bg-white/5 hover:text-white",
+                ? "bg-white/[0.08] text-white/90"
+                : "text-white/45 hover:bg-white/[0.05] hover:text-white/75",
             ].join(" ")
           }
           title={`Today${collapsed ? ` (${todayCount})` : ""}`}
           to="/tasks?view=today"
         >
-          <Clock3 size={16} />
-          {collapsed ? null : <span>Today</span>}
-          {collapsed ? null : (
-            <span className="ml-auto rounded-full bg-white/8 px-2 py-0.5 text-[11px] text-white/50">
-              {todayCount}
-            </span>
+          <Clock3 size={14} strokeWidth={1.45} />
+          {!collapsed && <span className="flex-1">Today</span>}
+          {!collapsed && todayCount > 0 && (
+            <span className="text-[11px] tabular-nums text-white/25">{todayCount}</span>
           )}
         </NavLink>
-      </div>
+      </nav>
 
-      <div className="mx-3 my-4 h-px bg-white/10" />
+      {/* Divider */}
+      <div className="mx-1.5 my-2.5 h-px bg-white/[0.055]" />
 
+      {/* Projects */}
       <div className="min-h-0 flex-1 overflow-hidden">
-        {collapsed ? (
-          <div className="pb-3 text-center text-[11px] uppercase tracking-[0.22em] text-white/25">P</div>
-        ) : (
-          <div className="flex items-center justify-between px-3 pb-3">
-            <span className="text-[11px] uppercase tracking-[0.22em] text-white/35">Projects</span>
+        {!collapsed && (
+          <div className="mb-1 flex items-center justify-between px-2">
+            <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/22">
+              Projects
+            </span>
           </div>
         )}
 
-        <div className={["h-full overflow-y-auto pb-4", collapsed ? "px-0" : "px-1"].join(" ")}>
-          <div className="space-y-1">
+        <div className={["h-full overflow-y-auto pb-4", collapsed ? "px-0" : "px-0"].join(" ")}>
+          <div className="space-y-0.5">
             {activeProjects.map((project) => (
               <ProjectNavItem
                 collapsed={collapsed}
@@ -164,34 +161,38 @@ export function Sidebar({
 
           <button
             className={[
-              "mt-3 flex rounded-xl border border-dashed border-white/10 bg-white/[0.03] text-sm text-white/65 transition hover:bg-white/5 hover:text-white",
-              collapsed ? "w-full justify-center px-0 py-3" : "w-full items-center gap-2 px-3 py-2.5",
+              "mt-1.5 flex w-full items-center rounded-md text-[12px] text-white/28 transition hover:bg-white/[0.04] hover:text-white/52",
+              collapsed ? "justify-center py-1.5" : "gap-2 px-2 py-[5px]",
             ].join(" ")}
             onClick={onOpenNewProject}
             title="New project"
             type="button"
           >
-            <FolderPlus size={16} />
-            {collapsed ? null : "New project"}
+            <FolderPlus size={14} strokeWidth={1.45} />
+            {!collapsed && "New project"}
           </button>
 
-          {archivedProjects.length > 0 ? (
-            <div className="mt-4 space-y-3">
+          {archivedProjects.length > 0 && (
+            <div className="mt-2.5 space-y-1.5">
               <button
                 className={[
-                  "flex text-xs text-white/45 transition hover:text-white/75",
-                  collapsed ? "w-full justify-center" : "items-center gap-2",
+                  "flex text-[11px] text-white/24 transition hover:text-white/48",
+                  collapsed ? "w-full justify-center" : "items-center gap-1.5 px-2",
                 ].join(" ")}
                 onClick={onToggleArchived}
-                title={`Show archived (${archivedProjects.length})`}
+                title={`Archived (${archivedProjects.length})`}
                 type="button"
               >
-                <ChevronDown className={showArchived ? "rotate-0 transition" : "-rotate-90 transition"} size={14} />
-                {collapsed ? null : `Show archived (${archivedProjects.length})`}
+                <ChevronDown
+                  className={showArchived ? "rotate-0 transition" : "-rotate-90 transition"}
+                  size={12}
+                  strokeWidth={1.45}
+                />
+                {!collapsed && `Archived (${archivedProjects.length})`}
               </button>
 
-              {showArchived ? (
-                <div className="space-y-1">
+              {showArchived && (
+                <div className="space-y-0.5">
                   {archivedProjects.map((project) => (
                     <ProjectNavItem
                       collapsed={collapsed}
@@ -202,41 +203,40 @@ export function Sidebar({
                     />
                   ))}
                 </div>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      <div className={["mt-3 border-t border-white/10 pt-3", collapsed ? "px-0" : "px-2"].join(" ")}>
-        <div
-          className={[
-            "rounded-2xl bg-white/5",
-            collapsed ? "flex justify-center px-0 py-3" : "flex items-center gap-3 px-3 py-3",
-          ].join(" ")}
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#6C63FF]/20 text-sm font-semibold text-[#9b95ff]">
-            {user.slice(0, 1).toUpperCase()}
-          </div>
-          {collapsed ? null : (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-white">{user}</p>
-              <p className="text-xs text-white/40">Signed in</p>
+              )}
             </div>
           )}
         </div>
-        <button
+      </div>
+
+      {/* User + logout */}
+      <div
+        className={[
+          "border-t border-white/[0.055] pt-1.5",
+          collapsed ? "px-0" : "px-0",
+        ].join(" ")}
+      >
+        <div
           className={[
-            "mt-3 flex w-full items-center justify-center rounded-xl border border-white/10 bg-white/5 text-sm text-white/75 transition hover:bg-white/10 hover:text-white",
-            collapsed ? "px-0 py-3" : "gap-2 px-3 py-2.5",
+            "flex items-center",
+            collapsed ? "justify-center py-0.5" : "gap-1.5 px-1.5 py-1",
           ].join(" ")}
-          onClick={onLogout}
-          title="Logout"
-          type="button"
         >
-          <LogOut size={14} />
-          {collapsed ? null : "Logout"}
-        </button>
+          <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/[0.055] text-[10px] font-semibold text-white/52">
+            {user.slice(0, 1).toUpperCase()}
+          </div>
+          {!collapsed && (
+            <span className="min-w-0 flex-1 truncate text-[12px] text-white/45">{user}</span>
+          )}
+          <button
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-white/22 transition hover:bg-white/[0.05] hover:text-white/58"
+            onClick={onLogout}
+            title="Logout"
+            type="button"
+          >
+            <LogOut size={13} strokeWidth={1.45} />
+          </button>
+        </div>
       </div>
     </aside>
   );
