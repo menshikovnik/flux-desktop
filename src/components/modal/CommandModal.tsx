@@ -49,12 +49,12 @@ export function CommandModal({
 
   return (
     <div
-      className={`modal-overlay fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 px-6 py-10 backdrop-blur-md${closing ? " is-closing" : ""}`}
+      className={`modal-overlay fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/35 px-6 py-10 backdrop-blur-[4px]${closing ? " is-closing" : ""}`}
       onPointerDown={handleOverlayPointerDown}
     >
       <div className="w-[640px] max-w-[calc(100vw-48px)]" ref={modalShellRef}>
-        <div className={`modal-surface w-full overflow-visible rounded-xl border border-white/10 bg-[#131314] shadow-[0_30px_120px_rgba(0,0,0,0.58),0_1px_0_rgba(255,255,255,0.03)_inset]${closing ? " is-closing" : ""}`}>
-          <div className="flex items-center justify-between gap-4 border-b border-white/[0.055] px-4 py-3">
+        <div className={`modal-surface w-full overflow-visible rounded-xl border border-white/10 bg-[#171719] shadow-[0_24px_84px_rgba(0,0,0,0.5)]${closing ? " is-closing" : ""}`}>
+          <div className="flex items-center justify-between gap-4 border-b border-white/10 px-4 py-3">
             <div
               className="min-w-0 flex-1 touch-none select-none cursor-grab active:cursor-grabbing"
               onPointerDown={handleDragStart}

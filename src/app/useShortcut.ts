@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { isModifierPressed } from "./platform";
 
 type ShortcutOptions = {
-  key: string;
+  code: string;
   mod?: boolean;
   preventDefault?: boolean;
   enabled?: boolean;
@@ -17,8 +17,8 @@ function isEditableTarget(target: EventTarget | null) {
   return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
 }
 
-function keyMatches(event: KeyboardEvent, key: string) {
-  return event.key.toLowerCase() === key.toLowerCase();
+function codeMatches(event: KeyboardEvent, code: string) {
+  return event.code === code;
 }
 
 export function useShortcut(options: ShortcutOptions, handler: (event: KeyboardEvent) => void) {
@@ -43,7 +43,7 @@ export function useShortcut(options: ShortcutOptions, handler: (event: KeyboardE
         return;
       }
 
-      if (!keyMatches(event, options.key)) {
+      if (!codeMatches(event, options.code)) {
         return;
       }
 
@@ -56,5 +56,5 @@ export function useShortcut(options: ShortcutOptions, handler: (event: KeyboardE
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [options.allowInEditable, options.enabled, options.key, options.mod, options.preventDefault]);
+  }, [options.allowInEditable, options.code, options.enabled, options.mod, options.preventDefault]);
 }

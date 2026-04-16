@@ -30,7 +30,7 @@ export function ProjectTopbar({
   isProjectView,
 }: ProjectTopbarProps) {
   return (
-    <div className="flex items-center gap-3 border-b border-white/[0.06] px-5 py-3">
+    <div className="flex items-center gap-3 border-b border-white/10 px-5 py-3">
       {/* Title block */}
       <div className="flex min-w-0 flex-1 items-center gap-2.5">
         {isProjectView && (
@@ -47,11 +47,19 @@ export function ProjectTopbar({
       {/* Actions */}
       <div className="flex shrink-0 items-center gap-2">
         {onSearchChange ? (
-          <label className="hidden h-8 items-center gap-1.5 rounded-full border border-white/[0.065] bg-white/[0.025] px-2.5 text-[12px] text-white/26 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] focus-within:border-white/[0.12] focus-within:bg-white/[0.04] md:flex">
+          <label className="hidden h-8 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-2.5 text-[12px] text-white/26 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] focus-within:border-white/10 focus-within:bg-white/[0.05] md:flex">
             <Search size={12} strokeWidth={1.7} />
             <input
               className="w-28 bg-transparent text-[12px] text-white/72 outline-none placeholder:text-white/24 lg:w-36"
               onChange={(event) => onSearchChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onSearchChange("");
+                  event.currentTarget.blur();
+                }
+              }}
               placeholder="Search"
               ref={searchInputRef}
               value={searchQuery}
@@ -71,14 +79,14 @@ export function ProjectTopbar({
           </button>
         )}
         <button
-          className="flex items-center gap-1.5 rounded-md bg-white/[0.07] px-3 py-1.5 text-[12px] font-medium text-white/80 transition hover:bg-white/[0.11] hover:text-white"
+          className="flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[12px] font-medium text-white/80 transition hover:bg-white/[0.09] hover:text-white"
           onClick={onCreateTask}
           type="button"
         >
           <Plus size={13} strokeWidth={2} />
-          New task
+          <span className="flex-1">New task</span>
           {newTaskShortcutLabel ? (
-            <Kbd className="ml-1">{newTaskShortcutLabel}</Kbd>
+            <Kbd className="ml-3">{newTaskShortcutLabel}</Kbd>
           ) : null}
         </button>
       </div>

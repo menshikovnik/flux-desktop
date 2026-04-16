@@ -49,7 +49,7 @@ function FluxIcon() {
 
 // Shared input styling — thin border, no ring, just border color on focus
 const inputClass =
-  "w-full rounded-lg border border-white/[0.08] bg-transparent px-3 py-2.5 text-[13px] text-white/90 outline-none transition-colors duration-100 placeholder:text-white/[0.18] focus:border-white/[0.22]";
+  "w-full rounded-lg border border-white/[0.05] bg-white/[0.015] px-3 py-2.5 text-[13px] text-white/90 outline-none transition-colors duration-100 placeholder:text-white/[0.18] focus:border-white/10";
 
 // Shared label styling
 const labelTextClass = "mb-1.5 block text-[11px] font-medium text-white/30";
@@ -165,7 +165,7 @@ export function AuthPage() {
 
         {/* GitHub button */}
         <button
-          className="mb-4 flex w-full items-center justify-center gap-2.5 rounded-lg border border-white/[0.10] bg-white/[0.04] px-4 py-2.5 text-[13px] font-medium text-white/75 transition-colors duration-100 hover:border-white/[0.16] hover:bg-white/[0.07] hover:text-white active:scale-[0.985]"
+          className="mb-4 flex w-full items-center justify-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-2.5 text-[13px] font-medium text-white/75 transition-colors duration-100 hover:bg-white/[0.05] hover:text-white active:scale-[0.985]"
           type="button"
         >
           <GitHubIcon />

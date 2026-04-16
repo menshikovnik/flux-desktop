@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 import { Palette } from "lucide-react";
 import { formatShortcut, getModifierKeyLabel, isModifierPressed } from "../../../app/platform";
+import { Kbd } from "../../../components/Kbd";
 import { CommandModal } from "../../../components/modal/CommandModal";
 
 const PRESET_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#3b82f6", "#ec4899"];
@@ -90,7 +91,7 @@ export function NewProjectModal({ open, closing, loading, onClose, onSubmit }: N
               />
             </div>
 
-            <div className="flex items-center justify-between gap-3 border-t border-white/[0.055] px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3 border-t border-white/10 px-3 py-2.5">
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <div className="flex min-h-7 items-center gap-1.5 rounded-md px-1.5 text-white/30">
                   <Palette size={13} strokeWidth={1.6} />
@@ -121,14 +122,14 @@ export function NewProjectModal({ open, closing, loading, onClose, onSubmit }: N
                   onClick={onClose}
                   type="button"
                 >
-                  Cancel <kbd className="text-[10px] text-white/20">Esc</kbd>
+                  Cancel <Kbd>Esc</Kbd>
                 </button>
                 <button
-                  className="inline-flex h-7 items-center gap-1.5 rounded-md bg-white/[0.10] px-2.5 text-[12px] font-medium text-white/82 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.14] active:duration-0 disabled:cursor-not-allowed disabled:opacity-45"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.05] px-2.5 text-[12px] font-medium text-white/82 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.09] active:duration-0 disabled:cursor-not-allowed disabled:opacity-45"
                   disabled={disabled}
                   type="submit"
                 >
-                  {loading ? "Creating" : "Create"} <kbd className="text-[10px] text-white/28">{submitShortcutLabel}</kbd>
+                  {loading ? "Creating" : "Create"} <Kbd>{submitShortcutLabel}</Kbd>
                 </button>
               </div>
             </div>

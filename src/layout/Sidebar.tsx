@@ -61,7 +61,7 @@ export function Sidebar({
   return (
     <aside
       className={[
-        "flex h-screen w-full min-w-0 shrink-0 flex-col bg-[#111113] py-2.5 transition-[padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        "flex h-screen w-full min-w-0 shrink-0 flex-col bg-[#171719] py-2.5 transition-[padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
         collapsed ? "px-1.5" : "px-1.5",
       ].join(" ")}
     >
@@ -134,7 +134,7 @@ export function Sidebar({
       </nav>
 
       {/* Divider */}
-      <div className="mx-1.5 my-2.5 h-px bg-white/[0.055]" />
+      <div className="mx-1.5 my-2.5 h-px bg-white/10" />
 
       {/* Projects */}
       <div className="min-h-0 flex-1 overflow-hidden">
@@ -212,7 +212,7 @@ export function Sidebar({
       {/* User + logout */}
       <div
         className={[
-          "border-t border-white/[0.055] pt-1.5",
+          "border-t border-white/10 pt-1.5",
           collapsed ? "px-0" : "px-0",
         ].join(" ")}
       >

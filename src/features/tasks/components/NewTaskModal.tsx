@@ -3,6 +3,7 @@ import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { CalendarDays, CircleDot, Flag, UserRound } from "lucide-react";
 import { Priority, Project, Status } from "../../../api";
 import { formatShortcut, getModifierKeyLabel, isModifierPressed } from "../../../app/platform";
+import { Kbd } from "../../../components/Kbd";
 import { CustomDateInput } from "../../../components/CustomDateInput";
 import { CustomSelect } from "../../../components/CustomSelect";
 import { CommandModal } from "../../../components/modal/CommandModal";
@@ -144,7 +145,7 @@ export function NewTaskModal({
             />
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-white/[0.055] px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3 border-t border-white/10 px-3 py-2.5">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
               <MetaControl icon={<CircleDot size={13} strokeWidth={1.6} />}>
                 <CustomSelect
@@ -215,14 +216,14 @@ export function NewTaskModal({
                 onClick={onClose}
                 type="button"
               >
-                Cancel <kbd className="text-[10px] text-white/20">Esc</kbd>
+                Cancel <Kbd>Esc</Kbd>
               </button>
               <button
-                className="inline-flex h-7 items-center gap-1.5 rounded-md bg-white/[0.10] px-2.5 text-[12px] font-medium text-white/82 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.14] active:duration-0 disabled:cursor-not-allowed disabled:opacity-45"
+                className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.05] px-2.5 text-[12px] font-medium text-white/82 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.09] active:duration-0 disabled:cursor-not-allowed disabled:opacity-45"
                 disabled={loading || !title.trim()}
                 type="submit"
               >
-                {loading ? "Creating" : "Create"} <kbd className="text-[10px] text-white/28">{submitShortcutLabel}</kbd>
+                {loading ? "Creating" : "Create"} <Kbd>{submitShortcutLabel}</Kbd>
               </button>
             </div>
           </div>

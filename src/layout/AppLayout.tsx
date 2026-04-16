@@ -90,7 +90,7 @@ export function AppLayout({
 
   if (!authResolved) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#111113] text-sm text-white/45">
+      <div className="flex min-h-screen items-center justify-center bg-[#0f1011] text-sm text-white/45">
         Restoring session...
       </div>
     );
@@ -180,9 +180,9 @@ export function AppLayout({
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#111113] text-white">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#0f1011] text-white">
       <div
-        className="app-shell-sidebar relative overflow-hidden border-r border-white/[0.06] bg-[#111113]"
+        className="app-shell-sidebar relative overflow-hidden border-r border-white/10 bg-[#171719]"
         ref={sidebarShellRef}
         style={{ width: `${effectiveSidebarWidth}px` }}
       >

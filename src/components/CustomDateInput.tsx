@@ -136,7 +136,7 @@ export function CustomDateInput({
     <div className="relative" ref={rootRef}>
       <button
         className={[
-          "flex min-h-7 w-full items-center gap-2 rounded-md border border-white/[0.06] bg-white/[0.018] px-2 py-1 text-[12px] text-white transition duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-white/[0.10] hover:bg-white/[0.03] hover:text-white focus:border-white/[0.14] focus:outline-none",
+          "flex min-h-7 w-full items-center gap-2 rounded-md border border-white/10 bg-white/[0.02] px-2 py-1 text-[12px] text-white transition duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-white/10 hover:bg-white/[0.04] hover:text-white focus:border-white/10 focus:outline-none",
           className,
         ].join(" ")}
         onClick={() => setOpen((current) => !current)}
@@ -150,7 +150,7 @@ export function CustomDateInput({
 
       <div
         className={[
-          "absolute top-[calc(100%+6px)] z-50 origin-top overflow-hidden rounded-xl border border-white/[0.08] bg-[#171719] shadow-[0_18px_48px_rgba(0,0,0,0.44)] ring-1 ring-white/[0.025] backdrop-blur-xl transition duration-100 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          "absolute top-[calc(100%+6px)] z-50 origin-top overflow-hidden rounded-xl border border-white/10 bg-[#171719] shadow-[0_18px_48px_rgba(0,0,0,0.44)] ring-1 ring-white/[0.025] backdrop-blur-xl transition duration-100 ease-[cubic-bezier(0.16,1,0.3,1)]",
           panelAlignment,
           calendarWidth,
           panelPadding,

@@ -44,6 +44,27 @@ type PendingTaskDelete = {
   previousTask: Task;
 };
 
+const WORKSPACE_VIEW_STORAGE_KEY = "flux-workspace-view";
+const WORKSPACE_VIEW_EVENT = "flux:set-workspace-view";
+
+function readStoredWorkspaceView() {
+  if (typeof window === "undefined") {
+    return "list" as const;
+  }
+
+  const stored = window.sessionStorage.getItem(WORKSPACE_VIEW_STORAGE_KEY);
+  return stored === "board" || stored === "timeline" ? stored : "list";
+}
+
+function setStoredWorkspaceView(view: "list" | "board" | "timeline") {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.setItem(WORKSPACE_VIEW_STORAGE_KEY, view);
+  window.dispatchEvent(new CustomEvent(WORKSPACE_VIEW_EVENT, { detail: view }));
+}
+
 function isToday(dateString?: string | null) {
   if (!dateString) {
     return false;
@@ -109,7 +130,7 @@ function WorkspaceView({
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"list" | "board" | "timeline">("list");
+  const [activeTab, setActiveTab] = useState<"list" | "board" | "timeline">(() => readStoredWorkspaceView());
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const modifierLabel = getModifierKeyLabel();
@@ -172,29 +193,43 @@ function WorkspaceView({
     });
   }, [activeTab]);
 
+  useEffect(() => {
+    setStoredWorkspaceView(activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    function handleWorkspaceViewChange(event: Event) {
+      const nextView = (event as CustomEvent<"list" | "board" | "timeline">).detail;
+      setActiveTab(nextView);
+    }
+
+    window.addEventListener(WORKSPACE_VIEW_EVENT, handleWorkspaceViewChange);
+    return () => window.removeEventListener(WORKSPACE_VIEW_EVENT, handleWorkspaceViewChange);
+  }, []);
+
   useShortcut(
-    { key: "c" },
+    { code: "KeyC" },
     () => {
       onOpenTaskModal(project?.id ?? undefined);
     },
   );
 
   useShortcut(
-    { key: "1", mod: true },
+    { code: "Digit1", mod: true },
     () => {
       setActiveTab("list");
     },
   );
 
   useShortcut(
-    { key: "2", mod: true },
+    { code: "Digit2", mod: true },
     () => {
       setActiveTab("board");
     },
   );
 
   useShortcut(
-    { key: "/" },
+    { code: "Slash" },
     () => {
       searchInputRef.current?.focus();
       searchInputRef.current?.select();
@@ -270,7 +305,7 @@ function WorkspaceView({
         title={title}
       />
 
-      <div className="flex items-center gap-2 border-b border-white/[0.06] px-5">
+      <div className="flex items-center gap-2 border-b border-white/10 px-5">
         <div className="tab-strip relative inline-flex" ref={tabsRailRef}>
           <span
             className="tab-strip__underline absolute bottom-0 h-[1.5px] rounded-full bg-white/50 transition-[transform,width,opacity] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]"
@@ -293,12 +328,12 @@ function WorkspaceView({
             >
               {tab === "list" ? "List" : tab === "board" ? "Board" : "Timeline"}
               {tab === "list" ? (
-                <Kbd className={activeTab === "list" ? "opacity-60" : "opacity-100"}>
+                <Kbd className="opacity-70">
                   {formatShortcut([modifierLabel, "1"])}
                 </Kbd>
               ) : null}
               {tab === "board" ? (
-                <Kbd className={activeTab === "board" ? "opacity-60" : "opacity-100"}>
+                <Kbd className="opacity-70">
                   {formatShortcut([modifierLabel, "2"])}
                 </Kbd>
               ) : null}
@@ -397,7 +432,7 @@ function AppShell() {
   }, []);
 
   useShortcut(
-    { key: "k", mod: true },
+    { code: "KeyK", mod: true },
     () => {
       setCommandPaletteOpen(true);
     },
@@ -405,7 +440,7 @@ function AppShell() {
 
   useShortcut(
     {
-      key: "Backspace",
+      code: "Backspace",
       enabled: detailOpen && Boolean(selectedTask) && !showTaskModal && !showProjectModal && !commandPaletteOpen,
     },
     () => {
@@ -417,7 +452,7 @@ function AppShell() {
 
   useShortcut(
     {
-      key: "Delete",
+      code: "Delete",
       enabled: detailOpen && Boolean(selectedTask) && !showTaskModal && !showProjectModal && !commandPaletteOpen,
     },
     () => {
@@ -768,6 +803,11 @@ function AppShell() {
 
       <CommandPalette
         onClose={() => setCommandPaletteOpen(false)}
+        onOpenBoard={() => {
+          setCommandPaletteOpen(false);
+          setStoredWorkspaceView("board");
+          navigate("/tasks");
+        }}
         onCreateTask={() => {
           setCommandPaletteOpen(false);
           openTaskModal();
@@ -778,6 +818,7 @@ function AppShell() {
         }}
         onNavigateTasks={() => {
           setCommandPaletteOpen(false);
+          setStoredWorkspaceView("list");
           navigate("/tasks");
         }}
         open={commandPaletteOpen}
@@ -792,12 +833,14 @@ function AppShell() {
 function CommandPalette({
   open,
   onClose,
+  onOpenBoard,
   onCreateTask,
   onNavigateTasks,
   onNavigateToday,
 }: {
   open: boolean;
   onClose: () => void;
+  onOpenBoard: () => void;
   onCreateTask: () => void;
   onNavigateTasks: () => void;
   onNavigateToday: () => void;
@@ -813,7 +856,7 @@ function CommandPalette({
     window.requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
 
-  useShortcut({ key: "Escape", enabled: open, allowInEditable: true }, onClose);
+  useShortcut({ code: "Escape", enabled: open, allowInEditable: true }, onClose);
 
   if (!open) {
     return null;
@@ -822,10 +865,10 @@ function CommandPalette({
   return (
     <div className="fixed inset-0 z-[110] flex items-start justify-center px-4 pt-[14vh]" onMouseDown={onClose}>
       <div
-        className="command-palette w-full max-w-xl overflow-hidden rounded-2xl border border-white/[0.11] bg-[#111113]/95 shadow-[0_4px_6px_rgba(0,0,0,0.25),0_24px_80px_rgba(0,0,0,0.42)] backdrop-blur-2xl"
+        className="command-palette w-full max-w-xl overflow-hidden rounded-2xl border border-white/10 bg-[#171719]/90 shadow-[0_18px_72px_rgba(0,0,0,0.46)] backdrop-blur-xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center gap-2 border-b border-white/[0.065] px-3 py-2.5">
+        <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2.5">
           <Search size={15} strokeWidth={1.7} className="text-white/30" />
           <input
             className="min-w-0 flex-1 bg-transparent text-[13px] text-white/78 outline-none placeholder:text-white/28"
@@ -837,6 +880,7 @@ function CommandPalette({
         <div className="p-1.5">
           <CommandPaletteItem hint="C" label="New task" onClick={onCreateTask} />
           <CommandPaletteItem hint={`${modifierLabel} 1`} label="Open List view" onClick={onNavigateTasks} />
+          <CommandPaletteItem hint={`${modifierLabel} 2`} label="Open Board view" onClick={onOpenBoard} />
           <CommandPaletteItem hint="/" label="Focus search" onClick={onClose} />
           <CommandPaletteItem label="Today" onClick={onNavigateToday} />
         </div>

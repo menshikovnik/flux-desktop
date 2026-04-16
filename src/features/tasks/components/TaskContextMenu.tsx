@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Check, Clipboard, Trash2 } from "lucide-react";
 import { normalizeApiError, Priority, Status, Task } from "../../../api";
+import { Kbd } from "../../../components/Kbd";
 import { useUpdateTask } from "../hooks/useUpdateTask";
 
 const STATUS_OPTIONS: Array<{ value: Status; label: string }> = [
@@ -125,7 +126,7 @@ export function TaskContextMenu({ onClose, onDeleteTask, onToast, task, x, y }: 
     <FloatingPortal>
     <div
       aria-label="Task actions"
-      className="task-context-menu fixed z-[100] w-[218px] rounded-lg border border-white/[0.08] bg-[#141416]/92 p-1.5 shadow-[0_18px_56px_rgba(0,0,0,0.48)] backdrop-blur-2xl"
+      className="task-context-menu fixed z-[100] w-[228px] rounded-lg border border-white/10 bg-[rgba(20,20,20,0.8)] p-1.5 shadow-[0_18px_56px_rgba(0,0,0,0.48)] backdrop-blur-md"
       ref={menuRef}
       role="menu"
       style={{ left: position.x, top: position.y }}
@@ -135,7 +136,7 @@ export function TaskContextMenu({ onClose, onDeleteTask, onToast, task, x, y }: 
         <p className="mt-0.5 text-[10px] text-white/24">Esc to close</p>
       </div>
 
-      <div className="my-1 h-px bg-white/[0.055]" />
+      <div className="my-1 h-px bg-white/10" />
 
       <MenuSection title="Change Status">
         {STATUS_OPTIONS.map((option) => (
@@ -159,7 +160,7 @@ export function TaskContextMenu({ onClose, onDeleteTask, onToast, task, x, y }: 
         ))}
       </MenuSection>
 
-      <div className="my-1 h-px bg-white/[0.055]" />
+      <div className="my-1 h-px bg-white/10" />
 
       <button
         className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-white/58 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.055] hover:text-white/82"
@@ -179,7 +180,7 @@ export function TaskContextMenu({ onClose, onDeleteTask, onToast, task, x, y }: 
       >
         <Trash2 className="text-red-300/38" size={13} strokeWidth={1.7} />
         <span className="flex-1">Delete Task</span>
-        <kbd className="text-[10px] text-red-200/32">Del</kbd>
+        <Kbd className="opacity-60">Del</Kbd>
       </button>
     </div>
     </FloatingPortal>

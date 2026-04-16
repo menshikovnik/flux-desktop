@@ -123,10 +123,10 @@ function TaskCard({
         "task-layout-item group relative rounded-lg border p-2.5 select-none outline-none transition-colors duration-100",
         highlighted ? "task-new-entry task-welcome-pulse" : "",
         ghost || isDragging
-          ? "border-white/[0.05] bg-white/[0.02] opacity-30"
+          ? "border-white/10 bg-white/[0.04] opacity-30"
           : isCancelled
-            ? "border-white/[0.04] bg-[#161618] opacity-40 cursor-grab hover:opacity-55"
-            : "border-white/[0.06] bg-[#1a1a1c] cursor-grab active:cursor-grabbing hover:border-white/[0.10] hover:bg-[#1f1f22] focus-visible:ring-1 focus-visible:ring-white/15",
+            ? "border-white/10 bg-[#171719] opacity-40 cursor-grab hover:opacity-55"
+            : "border-white/10 bg-[#171719] cursor-grab active:cursor-grabbing hover:border-white/10 hover:bg-[#1c1d1f] focus-visible:ring-1 focus-visible:ring-white/15",
       ].join(" ")}
     >
       {/* Title */}
@@ -247,8 +247,8 @@ function BoardColumn({
         className={[
         "group mb-2 flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)]",
           isFocused
-            ? `border-white/[0.10] ${column.headerActive}`
-            : "border-transparent hover:border-white/[0.06] hover:bg-white/[0.02]",
+            ? `border-white/10 ${column.headerActive}`
+            : "border-transparent hover:border-white/10 hover:bg-white/[0.03]",
         ].join(" ")}
       >
         <span className={`h-2 w-2 shrink-0 rounded-full ${column.accent}`} />
@@ -264,7 +264,7 @@ function BoardColumn({
         ref={setNodeRef}
         className={[
           "flex flex-1 flex-col gap-1.5 rounded-lg p-1 transition-colors duration-100",
-          isOver ? "bg-white/[0.03] ring-1 ring-white/[0.07]" : "",
+          isOver ? "bg-white/[0.04] ring-1 ring-white/10" : "",
         ].join(" ")}
         style={{ minHeight: 100 }}
       >
@@ -283,7 +283,7 @@ function BoardColumn({
           <div
             className={[
               "flex flex-1 items-center justify-center rounded-md border border-dashed py-8 transition-colors duration-100",
-              isOver ? "border-white/10" : "border-white/[0.04]",
+              isOver ? "border-white/10" : "border-white/10",
             ].join(" ")}
           >
             <span className="text-[11px] text-white/12">No tasks</span>

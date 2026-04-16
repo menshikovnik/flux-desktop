@@ -126,7 +126,7 @@ export function TaskDetailPanel({
   }, []);
 
   useShortcut(
-    { key: "Enter", mod: true, enabled: open && Boolean(currentTask), allowInEditable: true },
+    { code: "Enter", mod: true, enabled: open && Boolean(currentTask), allowInEditable: true },
     () => {
       if (!currentTask) {
         return;
@@ -174,7 +174,7 @@ export function TaskDetailPanel({
     <>
       <aside
         className={[
-          "h-screen shrink-0 overflow-hidden border-l border-white/[0.065] bg-[#111113] transition-[width,opacity] duration-200 ease-[cubic-bezier(0.05,0.7,0.1,1)]",
+          "h-screen shrink-0 overflow-hidden border-l border-white/10 bg-[#171719] transition-[width,opacity] duration-200 ease-[cubic-bezier(0.05,0.7,0.1,1)]",
           "task-detail-resizable",
           open ? "opacity-100" : "w-0 opacity-0",
           open && expanded ? "absolute right-0 top-0 z-30 w-full shadow-[-24px_0_80px_rgba(0,0,0,0.28)]" : "",
@@ -193,7 +193,7 @@ export function TaskDetailPanel({
           </div>
         ) : null}
         <div className="flex h-full min-w-[400px] flex-col">
-          <header className="flex h-12 items-center justify-between border-b border-white/[0.055] bg-[#111113]/95 px-3 backdrop-blur-xl">
+          <header className="flex h-12 items-center justify-between border-b border-white/10 bg-[#171719]/95 px-3 backdrop-blur-xl">
             <div className="flex min-w-0 items-center gap-2">
               <span className="truncate text-[10px] uppercase tracking-[0.16em] text-white/24">FLUX-{currentTask.id}</span>
               <span className={["text-[11px] text-white/34 transition-opacity duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]", savedVisible ? "opacity-100" : "opacity-0"].join(" ")}>
@@ -231,7 +231,7 @@ export function TaskDetailPanel({
             />
 
             <textarea
-              className="mt-3 min-h-[92px] w-full resize-none overflow-hidden whitespace-pre-wrap break-words rounded-lg border border-white/[0.06] bg-white/[0.018] px-3 py-2.5 text-[12.5px] leading-5 text-white/58 outline-none placeholder:text-white/20 focus:border-white/[0.12] focus:bg-white/[0.028]"
+              className="mt-3 min-h-[92px] w-full resize-none overflow-hidden whitespace-pre-wrap break-words rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5 text-[12.5px] leading-5 text-white/58 outline-none placeholder:text-white/20 focus:border-white/10 focus:bg-white/[0.03]"
               onBlur={() => {
                 if (description !== (currentTask.description ?? "")) void flushSave("description", { description });
               }}
@@ -246,7 +246,7 @@ export function TaskDetailPanel({
               value={description}
             />
 
-            <div className="my-4 h-px bg-white/[0.055]" />
+            <div className="my-4 h-px bg-white/10" />
 
             <div className="space-y-2.5">
               <MetadataRow label="Status">

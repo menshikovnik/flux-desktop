@@ -55,7 +55,7 @@ export function CustomSelect({
       <button
         aria-expanded={open}
         className={[
-          "flex min-h-7 w-full items-center gap-2 rounded-md border border-white/[0.06] bg-white/[0.018] px-2 py-1 text-left text-[12px] text-white/62 transition duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-white/[0.10] hover:bg-white/[0.03] hover:text-white/78 focus:border-white/[0.14] focus:outline-none",
+          "flex min-h-7 w-full items-center gap-2 rounded-md border border-white/10 bg-white/[0.02] px-2 py-1 text-left text-[12px] text-white/62 transition duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-white/10 hover:bg-white/[0.04] hover:text-white/78 focus:border-white/10 focus:outline-none",
           triggerClassName,
         ].join(" ")}
         onClick={() => setOpen((current) => !current)}
@@ -77,7 +77,7 @@ export function CustomSelect({
 
       <div
         className={[
-          "absolute left-0 top-[calc(100%+4px)] z-50 flex min-w-full origin-top flex-col gap-0.5 overflow-hidden rounded-lg border border-white/[0.07] bg-[#151516] p-1 shadow-[0_14px_34px_rgba(0,0,0,0.34)] ring-1 ring-white/[0.018] backdrop-blur-xl transition duration-100 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          "absolute left-0 top-[calc(100%+4px)] z-50 flex min-w-full origin-top flex-col gap-0.5 overflow-hidden rounded-lg border border-white/10 bg-[#171719] p-1 shadow-[0_14px_34px_rgba(0,0,0,0.34)] ring-1 ring-white/[0.02] backdrop-blur-xl transition duration-100 ease-[cubic-bezier(0.16,1,0.3,1)]",
           open
             ? "pointer-events-auto translate-y-0 opacity-100"
             : "pointer-events-none -translate-y-0.5 opacity-0",
