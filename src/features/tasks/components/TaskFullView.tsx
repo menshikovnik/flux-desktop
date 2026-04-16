@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Task } from "../../../api";
 import { CustomDateInput } from "../../../components/CustomDateInput";
 import { CustomSelect } from "../../../components/CustomSelect";
+import { TimeInput } from "../../../components/TimeInput";
 import { useProjects } from "../../projects/hooks/useProjects";
 import { useDebouncedTaskPatch } from "../hooks/useDebouncedTaskPatch";
 import { useTask } from "../hooks/useTask";
@@ -17,9 +18,9 @@ import {
   fileHoverTone,
   priorityDot,
   statusDot,
-  toDateInputValue,
 } from "./detail/detailHelpers";
 import { ActivityItem, Attachment, Subtask, ToastHandler } from "./detail/detailTypes";
+import { serializeDueDate, toLocalDateInputValue, toLocalTimeInputValue } from "../utils/dueDate";
 
 export function TaskFullView({
   onDeleteTask,
@@ -39,6 +40,7 @@ export function TaskFullView({
   const [status, setStatus] = useState<Task["status"]>("OPEN");
   const [priority, setPriority] = useState<Task["priority"]>("MEDIUM");
   const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
   const [savedVisible, setSavedVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [subtasks, setSubtasks] = useState<Subtask[]>(defaultSubtasks);
@@ -85,8 +87,9 @@ export function TaskFullView({
     setDescription(task.description ?? "");
     setStatus(task.status);
     setPriority(task.priority);
-    setDueDate(toDateInputValue(task.dueDate));
-  }, [task]);
+    setDueDate(toLocalDateInputValue(task.dueDate));
+    setDueTime(toLocalTimeInputValue(task.dueDate));
+  }, [task?.id, task?.title, task?.description, task?.status, task?.priority, task?.dueDate]);
 
   useEffect(() => autosizeTextarea(titleRef.current), [title]);
   useEffect(() => autosizeTextarea(descriptionRef.current), [description]);
@@ -255,17 +258,27 @@ export function TaskFullView({
               </MetadataRow>
 
               <MetadataRow label="Due date">
-                <CustomDateInput
-                  className="min-h-7 rounded-md border-transparent bg-transparent px-2 py-1 text-[12px] text-white/58 hover:border-white/[0.06] hover:bg-white/[0.028] focus:border-white/[0.10]"
-                  compact
-                  onChange={(value) => {
-                    setDueDate(value);
-                    scheduleSave("dueDate", { dueDate: value ? new Date(`${value}T00:00:00`).toISOString() : null });
-                  }}
-                  placeholder="Set due date"
-                  align="left"
-                  value={dueDate}
-                />
+                <div className="flex items-center gap-2">
+                  <CustomDateInput
+                    className="min-h-7 rounded-md border-transparent bg-transparent px-2 py-1 text-[12px] text-white/58 hover:border-white/[0.06] hover:bg-white/[0.028] focus:border-white/[0.10]"
+                    compact
+                    onChange={(value) => {
+                      setDueDate(value);
+                      scheduleSave("dueDate", { dueDate: serializeDueDate(value, dueTime) });
+                    }}
+                    placeholder="Set due date"
+                    align="left"
+                    value={dueDate}
+                  />
+                  <TimeInput
+                    className="border-transparent bg-transparent text-white/48 hover:border-white/[0.06] hover:bg-white/[0.028] focus:border-white/[0.10]"
+                    onChange={(value) => {
+                      setDueTime(value);
+                      scheduleSave("dueDate", { dueDate: serializeDueDate(dueDate, value) });
+                    }}
+                    value={dueTime}
+                  />
+                </div>
               </MetadataRow>
 
               <MetadataRow label="Project">

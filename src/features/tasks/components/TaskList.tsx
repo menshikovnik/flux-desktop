@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import type { MouseEvent } from "react";
 import { Status, Task } from "../../../api";
 import { TaskContextMenu } from "./TaskContextMenu";
@@ -12,16 +12,7 @@ const STATUS_GROUPS: Array<{ key: Task["status"]; label: string }> = [
   { key: "CANCELLED", label: "Cancelled" },
 ];
 
-export function TaskList({
-  tasks,
-  highlightedTaskId,
-  loading,
-  onDeleteTask,
-  onOpenTask,
-  onQuickAdd,
-  onToast,
-  storageScope = "default",
-}: {
+type TaskListProps = {
   tasks: Task[];
   highlightedTaskId: number | null;
   loading: boolean;
@@ -30,17 +21,42 @@ export function TaskList({
   onQuickAdd?: (status: Status, title: string) => Promise<void> | void;
   onToast?: (toast: { title: string; message: string; tone?: "error" | "success" }) => void;
   storageScope?: string;
-}) {
+};
+
+function TaskListInner({
+  tasks,
+  highlightedTaskId,
+  loading,
+  onDeleteTask,
+  onOpenTask,
+  onQuickAdd,
+  onToast,
+  storageScope = "default",
+}: TaskListProps) {
   const [contextMenu, setContextMenu] = useState<{ task: Task; x: number; y: number } | null>(null);
 
-  function handleTaskContextMenu(event: MouseEvent<HTMLButtonElement>, task: Task) {
+  // Stable — TaskRow is memo'd; recreating this on every render would defeat the memoization.
+  const handleTaskContextMenu = useCallback((event: MouseEvent<HTMLButtonElement>, task: Task) => {
     event.preventDefault();
-    setContextMenu({
-      task,
-      x: event.clientX,
-      y: event.clientY,
-    });
-  }
+    setContextMenu({ task, x: event.clientX, y: event.clientY });
+  }, []);
+  const handleCloseContextMenu = useCallback(() => setContextMenu(null), []);
+
+  // Bucket tasks by status once per `tasks` identity instead of scanning the full list per group.
+  const tasksByStatus = useMemo(() => {
+    const buckets: Record<Task["status"], Task[]> = {
+      OPEN: [],
+      IN_PROGRESS: [],
+      DONE: [],
+      CANCELLED: [],
+    };
+
+    for (const task of tasks) {
+      buckets[task.status].push(task);
+    }
+
+    return buckets;
+  }, [tasks]);
 
   if (loading) {
     return <div className="p-6 text-sm text-white/50">Loading tasks...</div>;
@@ -53,11 +69,13 @@ export function TaskList({
   return (
     <div className="space-y-5 px-5 py-4">
       {STATUS_GROUPS.map((group) => {
-        const groupTasks = tasks.filter((task) => task.status === group.key);
-        const hasHighlightedTask = groupTasks.some((task) => task.id === highlightedTaskId);
+        const groupTasks = tasksByStatus[group.key];
         if (groupTasks.length === 0) {
           return null;
         }
+
+        const hasHighlightedTask = highlightedTaskId !== null &&
+          groupTasks.some((task) => task.id === highlightedTaskId);
 
         return (
           <TaskGroup
@@ -74,7 +92,7 @@ export function TaskList({
                 key={task.id}
                 highlighted={task.id === highlightedTaskId}
                 onContextMenu={handleTaskContextMenu}
-                onOpen={() => onOpenTask(task)}
+                onOpen={onOpenTask}
                 task={task}
               />
             ))}
@@ -84,7 +102,7 @@ export function TaskList({
 
       {contextMenu ? (
         <TaskContextMenu
-          onClose={() => setContextMenu(null)}
+          onClose={handleCloseContextMenu}
           onDeleteTask={onDeleteTask}
           onToast={onToast}
           task={contextMenu.task}
@@ -95,3 +113,5 @@ export function TaskList({
     </div>
   );
 }
+
+export const TaskList = memo(TaskListInner);

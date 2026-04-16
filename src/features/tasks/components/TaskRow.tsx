@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { memo, useCallback, useEffect, useRef } from "react";
 import type { MouseEvent } from "react";
 import { CalendarDays, Circle, SignalHigh, SignalLow, SignalMedium } from "lucide-react";
 import { Task } from "../../../api";
@@ -37,17 +37,16 @@ function formatDueDate(input?: string | null) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(input));
 }
 
-export function TaskRow({
-  highlighted,
-  task,
-  onContextMenu,
-  onOpen,
-}: {
+type TaskRowProps = {
   highlighted: boolean;
   task: Task;
   onContextMenu: (event: MouseEvent<HTMLButtonElement>, task: Task) => void;
-  onOpen: () => void;
-}) {
+  // Receives the task so parent can pass a single stable handler instead of a per-row closure,
+  // which is what makes React.memo effective here.
+  onOpen: (task: Task) => void;
+};
+
+function TaskRowInner({ highlighted, task, onContextMenu, onOpen }: TaskRowProps) {
   const priority = getPriorityMeta(task.priority);
   const PriorityIcon = priority.icon;
   const isMuted = task.status === "CANCELLED" || task.status === "DONE";
@@ -61,18 +60,24 @@ export function TaskRow({
     const rect = rowRef.current.getBoundingClientRect();
     const outsideViewport = rect.top < 0 || rect.bottom > window.innerHeight;
     if (outsideViewport) {
-      rowRef.current.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+      rowRef.current.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
     }
   }, [highlighted]);
+
+  const handleContextMenu = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => onContextMenu(event, task),
+    [onContextMenu, task],
+  );
+  const handleClick = useCallback(() => onOpen(task), [onOpen, task]);
 
   return (
     <button
       className={[
-        "task-layout-item group grid w-full grid-cols-[18px_minmax(0,1fr)_auto_auto_auto] items-center gap-2.5 rounded-md border border-transparent px-2.5 py-1.5 text-left transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.045]",
-        highlighted ? "task-new-entry task-welcome-pulse" : "",
+        "task-layout-item group grid w-full grid-cols-[18px_minmax(0,1fr)_auto_auto_auto] items-center gap-2.5 rounded-md border border-transparent px-2.5 py-1.5 text-left transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.045]",
+        highlighted ? "task-keyboard-selected" : "",
       ].join(" ")}
-      onContextMenu={(event) => onContextMenu(event, task)}
-      onClick={onOpen}
+      onContextMenu={handleContextMenu}
+      onClick={handleClick}
       ref={rowRef}
       type="button"
     >
@@ -101,3 +106,6 @@ export function TaskRow({
     </button>
   );
 }
+
+// Memoized — rows only re-render when their task, highlight, or handler identity changes.
+export const TaskRow = memo(TaskRowInner);

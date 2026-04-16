@@ -1,9 +1,9 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { QueryKey, useQueries, useQueryClient } from "@tanstack/react-query";
 import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Search } from "lucide-react";
 import { Kbd } from "./components/Kbd";
-import { Project, Status, Task, logoutUser, normalizeApiError, setAccessToken } from "./api";
+import { Project, Status, Task, isApiErrorWithStatus, logoutUser, normalizeApiError, setAccessToken } from "./api";
 import "./App.css";
 import { formatShortcut, getModifierKeyLabel } from "./app/platform";
 import { useShortcut } from "./app/useShortcut";
@@ -114,6 +114,7 @@ function WorkspaceView({
   allProjects,
   onDeleteTask,
   highlightedTaskId,
+  onHighlightTask,
   onOpenTask,
   onOpenTaskModal,
   onQuickCreateTask,
@@ -122,6 +123,7 @@ function WorkspaceView({
   allProjects: Project[];
   onDeleteTask: (task: Task) => void;
   highlightedTaskId: number | null;
+  onHighlightTask: (taskId: number | null) => void;
   onOpenTask: (task: Task) => void;
   onOpenTaskModal: (projectId?: number, initialStatus?: Status) => void;
   onQuickCreateTask: (values: { title: string; status: Status; projectId: number | null }) => Promise<void>;
@@ -159,8 +161,11 @@ function WorkspaceView({
 
     return rawTasks;
   }, [projectId, rawTasks, todayMode]);
+  // Defer the filter term so typing stays responsive — React keeps the input updating at
+  // high priority and re-runs the (potentially expensive) filter during idle time.
+  const deferredSearch = useDeferredValue(searchQuery);
   const tasks = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = deferredSearch.trim().toLowerCase();
     const visibleTasks = query
       ? scopedTasks.filter((task) =>
           [task.title, task.description ?? ""].some((value) => value.toLowerCase().includes(query)),
@@ -168,7 +173,27 @@ function WorkspaceView({
       : scopedTasks;
 
     return sortTasks(visibleTasks);
-  }, [scopedTasks, searchQuery]);
+  }, [scopedTasks, deferredSearch]);
+
+  const taskIndexById = useMemo(
+    () => new Map(tasks.map((task, index) => [task.id, index])),
+    [tasks],
+  );
+
+  const boardColumns = useMemo(() => {
+    const buckets: Record<Task["status"], Task[]> = {
+      OPEN: [],
+      IN_PROGRESS: [],
+      DONE: [],
+      CANCELLED: [],
+    };
+
+    for (const task of tasks) {
+      buckets[task.status].push(task);
+    }
+
+    return buckets;
+  }, [tasks]);
 
 
   const title = project ? project.name : todayMode ? "Today" : "My tasks";
@@ -236,6 +261,179 @@ function WorkspaceView({
     },
   );
 
+  useShortcut(
+    { code: "ArrowDown" },
+    () => {
+      if (tasks.length === 0) {
+        return;
+      }
+
+      if (activeTab === "board") {
+        const currentTask = highlightedTaskId ? tasks.find((task) => task.id === highlightedTaskId) ?? null : null;
+        if (!currentTask) {
+          onHighlightTask(tasks[0].id);
+          return;
+        }
+
+        const columnTasks = boardColumns[currentTask.status];
+        const nextIndex = columnTasks.findIndex((task) => task.id === currentTask.id) + 1;
+        const nextTask = columnTasks[Math.min(nextIndex, columnTasks.length - 1)];
+        onHighlightTask(nextTask?.id ?? currentTask.id);
+        return;
+      }
+
+      const currentIndex = highlightedTaskId !== null ? taskIndexById.get(highlightedTaskId) ?? -1 : -1;
+      const nextTask = tasks[Math.min(currentIndex + 1, tasks.length - 1)] ?? tasks[0];
+      onHighlightTask(nextTask.id);
+    },
+  );
+
+  useShortcut(
+    { code: "ArrowUp" },
+    () => {
+      if (tasks.length === 0) {
+        return;
+      }
+
+      if (activeTab === "board") {
+        const currentTask = highlightedTaskId ? tasks.find((task) => task.id === highlightedTaskId) ?? null : null;
+        if (!currentTask) {
+          onHighlightTask(tasks[0].id);
+          return;
+        }
+
+        const columnTasks = boardColumns[currentTask.status];
+        const currentIndex = columnTasks.findIndex((task) => task.id === currentTask.id);
+        const nextTask = columnTasks[Math.max(currentIndex - 1, 0)];
+        onHighlightTask(nextTask?.id ?? currentTask.id);
+        return;
+      }
+
+      const currentIndex = highlightedTaskId !== null ? taskIndexById.get(highlightedTaskId) ?? tasks.length : tasks.length;
+      const nextTask = tasks[Math.max(currentIndex - 1, 0)] ?? tasks[0];
+      onHighlightTask(nextTask.id);
+    },
+  );
+
+  useShortcut(
+    { code: "ArrowRight" },
+    () => {
+      if (tasks.length === 0) {
+        return;
+      }
+
+      if (activeTab !== "board") {
+        const currentIndex = highlightedTaskId !== null ? taskIndexById.get(highlightedTaskId) ?? -1 : -1;
+        const nextTask = tasks[Math.min(currentIndex + 1, tasks.length - 1)] ?? tasks[0];
+        onHighlightTask(nextTask.id);
+        return;
+      }
+
+      const statusOrder: Task["status"][] = ["OPEN", "IN_PROGRESS", "DONE", "CANCELLED"];
+      const currentTask = highlightedTaskId ? tasks.find((task) => task.id === highlightedTaskId) ?? null : null;
+      if (!currentTask) {
+        onHighlightTask(tasks[0].id);
+        return;
+      }
+
+      const currentStatusIndex = statusOrder.indexOf(currentTask.status);
+      const currentRow = Math.max(boardColumns[currentTask.status].findIndex((task) => task.id === currentTask.id), 0);
+
+      for (let index = currentStatusIndex + 1; index < statusOrder.length; index += 1) {
+        const nextColumn = boardColumns[statusOrder[index]];
+        if (nextColumn.length === 0) {
+          continue;
+        }
+
+        const nextTask = nextColumn[Math.min(currentRow, nextColumn.length - 1)];
+        onHighlightTask(nextTask.id);
+        return;
+      }
+    },
+  );
+
+  useShortcut(
+    { code: "ArrowLeft" },
+    () => {
+      if (tasks.length === 0) {
+        return;
+      }
+
+      if (activeTab !== "board") {
+        const currentIndex = highlightedTaskId !== null ? taskIndexById.get(highlightedTaskId) ?? tasks.length : tasks.length;
+        const nextTask = tasks[Math.max(currentIndex - 1, 0)] ?? tasks[0];
+        onHighlightTask(nextTask.id);
+        return;
+      }
+
+      const statusOrder: Task["status"][] = ["OPEN", "IN_PROGRESS", "DONE", "CANCELLED"];
+      const currentTask = highlightedTaskId ? tasks.find((task) => task.id === highlightedTaskId) ?? null : null;
+      if (!currentTask) {
+        onHighlightTask(tasks[0].id);
+        return;
+      }
+
+      const currentStatusIndex = statusOrder.indexOf(currentTask.status);
+      const currentRow = Math.max(boardColumns[currentTask.status].findIndex((task) => task.id === currentTask.id), 0);
+
+      for (let index = currentStatusIndex - 1; index >= 0; index -= 1) {
+        const nextColumn = boardColumns[statusOrder[index]];
+        if (nextColumn.length === 0) {
+          continue;
+        }
+
+        const nextTask = nextColumn[Math.min(currentRow, nextColumn.length - 1)];
+        onHighlightTask(nextTask.id);
+        return;
+      }
+    },
+  );
+
+  useShortcut(
+    { code: "Delete" },
+    () => {
+      if (highlightedTaskId === null) {
+        return;
+      }
+
+      const task = tasks.find((item) => item.id === highlightedTaskId);
+      if (!task) {
+        return;
+      }
+
+      onDeleteTask(task);
+      const currentIndex = taskIndexById.get(task.id) ?? 0;
+      const fallbackTask = tasks[currentIndex + 1] ?? tasks[currentIndex - 1] ?? null;
+      onHighlightTask(fallbackTask?.id ?? null);
+    },
+  );
+
+  useShortcut(
+    { code: "Enter" },
+    () => {
+      if (highlightedTaskId === null) {
+        return;
+      }
+
+      const task = tasks.find((item) => item.id === highlightedTaskId);
+      if (!task) {
+        return;
+      }
+
+      onOpenTask(task);
+    },
+  );
+
+  useShortcut(
+    { code: "Escape" },
+    () => {
+      onHighlightTask(null);
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    },
+  );
+
   if (projectId !== null && !project && !taskQuery.isLoading && !projectQuery.isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -247,22 +445,28 @@ function WorkspaceView({
     );
   }
 
-  function handleOpenTask(task: Task) {
-    if (projectId !== null) {
-      onOpenTask({ ...task, projectId });
-      return;
-    }
+  // Stable handlers so memoized children (TaskList / TaskBoard) don't re-render on unrelated parent updates.
+  const handleOpenTask = useCallback(
+    (task: Task) => {
+      if (projectId !== null) {
+        onOpenTask({ ...task, projectId });
+        return;
+      }
 
-    onOpenTask(task);
-  }
+      onOpenTask(task);
+    },
+    [onOpenTask, projectId],
+  );
 
-  function handleQuickCreate(status: Status, titleValue: string) {
-    return onQuickCreateTask({
-      title: titleValue,
-      status,
-      projectId,
-    });
-  }
+  const handleQuickCreate = useCallback(
+    (status: Status, titleValue: string) =>
+      onQuickCreateTask({
+        title: titleValue,
+        status,
+        projectId,
+      }),
+    [onQuickCreateTask, projectId],
+  );
 
   async function handleDeleteProjectConfirm() {
     if (!project) {
@@ -421,6 +625,9 @@ function AppShell() {
   const createProject = useCreateProject();
   const createTask = useCreateTask();
   const pendingTaskDeleteRef = useRef<PendingTaskDelete | null>(null);
+  const detailOpenFrameRef = useRef<number | null>(null);
+  const detailCloseTimeoutRef = useRef<number | null>(null);
+  const taskModalCloseTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     function preventBrowserContextMenu(event: MouseEvent) {
@@ -473,6 +680,21 @@ function AppShell() {
     queryClient.setQueryData(["task", context.taskId], context.previousTask);
   }
 
+  function removeTaskFromCaches(taskId: number) {
+    const cachedEntries = queryClient.getQueriesData<Task[]>({ queryKey: ["tasks"] });
+    cachedEntries.forEach(([queryKey, tasks]) => {
+      if (!tasks) {
+        return;
+      }
+
+      queryClient.setQueryData<Task[]>(
+        queryKey,
+        tasks.filter((task) => task.id !== taskId),
+      );
+    });
+    queryClient.removeQueries({ queryKey: ["task", taskId] });
+  }
+
   function commitPendingTaskDelete() {
     const pending = pendingTaskDeleteRef.current;
     if (!pending) {
@@ -484,6 +706,11 @@ function AppShell() {
     void deleteTaskRequest(pending.taskId)
       .then(() => queryClient.invalidateQueries({ queryKey: ["tasks"] }))
       .catch((error) => {
+        if (isApiErrorWithStatus(error, 404)) {
+          removeTaskFromCaches(pending.taskId);
+          return;
+        }
+
         restoreTaskDelete(pending);
         const normalized = normalizeApiError(error);
         setNotice({
@@ -523,6 +750,11 @@ function AppShell() {
         void deleteTaskRequest(task.id)
           .then(() => queryClient.invalidateQueries({ queryKey: ["tasks"] }))
           .catch((error) => {
+            if (isApiErrorWithStatus(error, 404)) {
+              removeTaskFromCaches(task.id);
+              return;
+            }
+
             restoreTaskDelete(pending);
             const normalized = normalizeApiError(error);
             setNotice({
@@ -553,6 +785,15 @@ function AppShell() {
       if (pendingTaskDeleteRef.current) {
         window.clearTimeout(pendingTaskDeleteRef.current.timeoutId);
       }
+      if (detailOpenFrameRef.current !== null) {
+        window.cancelAnimationFrame(detailOpenFrameRef.current);
+      }
+      if (detailCloseTimeoutRef.current !== null) {
+        window.clearTimeout(detailCloseTimeoutRef.current);
+      }
+      if (taskModalCloseTimeoutRef.current !== null) {
+        window.clearTimeout(taskModalCloseTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -570,6 +811,10 @@ function AppShell() {
   }
 
   function openTaskModal(projectId?: number, initialStatus?: Status) {
+    if (taskModalCloseTimeoutRef.current !== null) {
+      window.clearTimeout(taskModalCloseTimeoutRef.current);
+      taskModalCloseTimeoutRef.current = null;
+    }
     setNewTaskProjectId(projectId);
     setNewTaskStatus(initialStatus);
     setClosingTaskModal(false);
@@ -577,14 +822,27 @@ function AppShell() {
   }
 
   function closeTaskModal() {
+    if (taskModalCloseTimeoutRef.current !== null) {
+      window.clearTimeout(taskModalCloseTimeoutRef.current);
+    }
     setClosingTaskModal(true);
-    window.setTimeout(() => {
+    taskModalCloseTimeoutRef.current = window.setTimeout(() => {
+      taskModalCloseTimeoutRef.current = null;
       setShowTaskModal(false);
       setClosingTaskModal(false);
     }, 150);
   }
 
   function openDetail(task: Task) {
+    if (detailCloseTimeoutRef.current !== null) {
+      window.clearTimeout(detailCloseTimeoutRef.current);
+      detailCloseTimeoutRef.current = null;
+    }
+    if (detailOpenFrameRef.current !== null) {
+      window.cancelAnimationFrame(detailOpenFrameRef.current);
+      detailOpenFrameRef.current = null;
+    }
+
     if (detailOpen && selectedTask?.id === task.id) {
       closeDetail();
       return;
@@ -592,14 +850,24 @@ function AppShell() {
 
     setSelectedTask(task);
     setDetailMounted(true);
-    window.requestAnimationFrame(() => {
+    detailOpenFrameRef.current = window.requestAnimationFrame(() => {
+      detailOpenFrameRef.current = null;
       setDetailOpen(true);
     });
   }
 
   function closeDetail() {
+    if (detailOpenFrameRef.current !== null) {
+      window.cancelAnimationFrame(detailOpenFrameRef.current);
+      detailOpenFrameRef.current = null;
+    }
+    if (detailCloseTimeoutRef.current !== null) {
+      window.clearTimeout(detailCloseTimeoutRef.current);
+    }
+
     setDetailOpen(false);
-    window.setTimeout(() => {
+    detailCloseTimeoutRef.current = window.setTimeout(() => {
+      detailCloseTimeoutRef.current = null;
       setDetailMounted(false);
       setSelectedTask(null);
     }, 200);
@@ -655,9 +923,6 @@ function AppShell() {
       const task = await createTask.mutateAsync(values);
       setHighlightedTaskId(task.id);
       closeTaskModal();
-      window.setTimeout(() => {
-        setHighlightedTaskId((current) => (current === task.id ? null : current));
-      }, 2600);
     } catch (error) {
       const normalized = normalizeApiError(error);
       setNotice({
@@ -679,9 +944,6 @@ function AppShell() {
         projectId: values.projectId,
       });
       setHighlightedTaskId(task.id);
-      window.setTimeout(() => {
-        setHighlightedTaskId((current) => (current === task.id ? null : current));
-      }, 2600);
     } catch (error) {
       const normalized = normalizeApiError(error);
       setNotice({
@@ -750,6 +1012,7 @@ function AppShell() {
                     <WorkspaceView
                       allProjects={projects}
                       highlightedTaskId={highlightedTaskId}
+                      onHighlightTask={setHighlightedTaskId}
                       onDeleteTask={handleUndoableDeleteTask}
                       onOpenTask={openDetail}
                       onOpenTaskModal={openTaskModal}
@@ -766,6 +1029,7 @@ function AppShell() {
                     <WorkspaceView
                       allProjects={projects}
                       highlightedTaskId={highlightedTaskId}
+                      onHighlightTask={setHighlightedTaskId}
                       onDeleteTask={handleUndoableDeleteTask}
                       onOpenTask={openDetail}
                       onOpenTaskModal={openTaskModal}

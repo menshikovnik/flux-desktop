@@ -1,6 +1,7 @@
 import { PointerEvent, useEffect, useRef } from "react";
 
 export function useDraggableModal(open: boolean) {
+  const VIEWPORT_MARGIN = 24;
   const modalShellRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     pointerId: number;
@@ -24,9 +25,29 @@ export function useDraggableModal(open: boolean) {
   }, [open]);
 
   useEffect(() => {
+    function clampOffset(offset: { x: number; y: number }) {
+      const modal = modalShellRef.current;
+      if (!modal) {
+        return offset;
+      }
+
+      const rect = modal.getBoundingClientRect();
+      const currentOffset = offsetRef.current;
+      const minX = VIEWPORT_MARGIN - rect.left;
+      const maxX = window.innerWidth - VIEWPORT_MARGIN - rect.right;
+      const minY = VIEWPORT_MARGIN - rect.top;
+      const maxY = window.innerHeight - VIEWPORT_MARGIN - rect.bottom;
+
+      return {
+        x: Math.min(Math.max(offset.x, currentOffset.x + minX), currentOffset.x + maxX),
+        y: Math.min(Math.max(offset.y, currentOffset.y + minY), currentOffset.y + maxY),
+      };
+    }
+
     function commitDragFrame() {
       animationFrameRef.current = null;
-      const nextOffset = nextOffsetRef.current;
+      const nextOffset = clampOffset(nextOffsetRef.current);
+      nextOffsetRef.current = nextOffset;
       offsetRef.current = nextOffset;
       if (modalShellRef.current) {
         modalShellRef.current.style.transform = `translate3d(${nextOffset.x}px, ${nextOffset.y}px, 0)`;

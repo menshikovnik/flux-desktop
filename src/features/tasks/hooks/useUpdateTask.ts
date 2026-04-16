@@ -38,6 +38,7 @@ export function useUpdateTask() {
       }
     },
     onSuccess: (task) => {
+      // Atomic cache update — patch only the mutated task instead of refetching the list.
       queryClient.setQueryData(["task", task.id], task);
       const entries = queryClient.getQueriesData<Task[]>({ queryKey: ["tasks"] });
       entries.forEach(([queryKey, tasks]) => {
@@ -50,9 +51,6 @@ export function useUpdateTask() {
           tasks.map((item) => (item.id === task.id ? { ...item, ...task } : item)),
         );
       });
-    },
-    onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 }

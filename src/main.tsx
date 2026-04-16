@@ -8,8 +8,16 @@ import { AuthProvider } from "./auth";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 15_000,
+      // Desktop app with optimistic updates — treat data as fresh for a minute,
+      // keep idle cache around for 5 min, and avoid aggressive refetches.
+      staleTime: 60_000,
+      gcTime: 5 * 60_000,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      retry: 1,
+    },
+    mutations: {
+      retry: 0,
     },
   },
 });

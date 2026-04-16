@@ -4,9 +4,10 @@ import { CalendarDays, CircleDot, Flag, UserRound } from "lucide-react";
 import { Priority, Project, Status } from "../../../api";
 import { formatShortcut, getModifierKeyLabel, isModifierPressed } from "../../../app/platform";
 import { Kbd } from "../../../components/Kbd";
-import { CustomDateInput } from "../../../components/CustomDateInput";
 import { CustomSelect } from "../../../components/CustomSelect";
 import { CommandModal } from "../../../components/modal/CommandModal";
+import { DueDateField } from "./DueDateField";
+import { serializeDueDate } from "../utils/dueDate";
 
 export function NewTaskModal({
   open,
@@ -39,17 +40,26 @@ export function NewTaskModal({
   const [status, setStatus] = useState<Status>(initialStatus ?? "OPEN");
   const [priority, setPriority] = useState<Priority>("MEDIUM");
   const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
   const [projectId, setProjectId] = useState<string>("none");
   const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
   const submitShortcutLabel = formatShortcut([getModifierKeyLabel(), "Enter"]);
 
-  useEffect(() => {
+  function resetForm() {
+    setTitle("");
+    setDescription("");
+    setStatus(initialStatus ?? "OPEN");
+    setPriority("MEDIUM");
+    setDueDate("");
+    setDueTime("");
     setProjectId(initialProjectId ? String(initialProjectId) : "none");
-  }, [initialProjectId, open]);
+  }
 
   useEffect(() => {
-    setStatus(initialStatus ?? "OPEN");
-  }, [initialStatus, open]);
+    if (open) {
+      resetForm();
+    }
+  }, [initialProjectId, initialStatus, open]);
 
   useEffect(() => {
     if (!descriptionRef.current) {
@@ -73,21 +83,18 @@ export function NewTaskModal({
   }
 
   async function submitTask() {
+    if (loading || !title.trim()) {
+      return;
+    }
+
     await onSubmit({
       title: title.trim(),
       description: description.trim(),
       status,
       priority,
-      dueDate: dueDate ? new Date(`${dueDate}T00:00:00`).toISOString() : null,
+      dueDate: serializeDueDate(dueDate, dueTime),
       projectId: projectId === "none" ? null : Number(projectId),
     });
-
-    setTitle("");
-    setDescription("");
-    setStatus(initialStatus ?? "OPEN");
-    setPriority("MEDIUM");
-    setDueDate("");
-    setProjectId(initialProjectId ? String(initialProjectId) : "none");
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -103,9 +110,8 @@ export function NewTaskModal({
     const shouldSubmit = isModifierPressed(event);
     if (shouldSubmit) {
       event.preventDefault();
-      if (!loading && title.trim()) {
-        event.currentTarget.requestSubmit();
-      }
+      event.stopPropagation();
+      void submitTask();
       return;
     }
 
@@ -145,8 +151,8 @@ export function NewTaskModal({
             />
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-white/10 px-3 py-2.5">
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-2 border-t border-white/10 px-3 py-2.5">
+            <div className="grid min-w-0 grid-cols-[max-content_max-content_max-content] gap-1">
               <MetaControl icon={<CircleDot size={13} strokeWidth={1.6} />}>
                 <CustomSelect
                   onChange={(value) => setStatus(value as Status)}
@@ -185,32 +191,34 @@ export function NewTaskModal({
                 </button>
               </MetaControl>
 
-              <MetaControl icon={<CalendarDays size={13} strokeWidth={1.6} />}>
-                <CustomDateInput
-                  className="border-transparent bg-transparent px-1.5 py-1 text-[12px] text-white/56 hover:border-transparent hover:bg-transparent focus:border-transparent"
-                  compact
-                  showIcon={false}
-                  onChange={setDueDate}
-                  align="right"
-                  value={dueDate}
+              <div className="col-span-3 flex min-w-0 items-center gap-1">
+                <MetaControl className="shrink-0" icon={<CalendarDays size={13} strokeWidth={1.6} />}>
+                <DueDateField
+                  dateValue={dueDate}
+                  onDateChange={setDueDate}
+                  onTimeChange={setDueTime}
+                  timeValue={dueTime}
                 />
-              </MetaControl>
+                </MetaControl>
 
-              <CustomSelect
-                onChange={(value) => setProjectId(String(value))}
-                options={[
-                  { value: "none", label: "No project" },
-                  ...projects
-                    .filter((project) => !project.archived)
-                    .map((project) => ({ value: String(project.id), label: project.name })),
-                ]}
-                triggerClassName="max-w-[150px] border-transparent bg-transparent px-2 py-1 text-white/42 hover:border-transparent hover:bg-white/[0.045] focus:border-transparent"
-                menuClassName="min-w-[180px]"
-                value={projectId}
-              />
+                <div className="w-[118px] shrink-0">
+                  <CustomSelect
+                    onChange={(value) => setProjectId(String(value))}
+                    options={[
+                      { value: "none", label: "No project" },
+                      ...projects
+                        .filter((project) => !project.archived)
+                        .map((project) => ({ value: String(project.id), label: project.name })),
+                    ]}
+                    triggerClassName="border-transparent bg-transparent px-2 py-1 text-white/42 hover:border-transparent hover:bg-white/[0.045] focus:border-transparent"
+                    menuClassName="min-w-[180px]"
+                    value={projectId}
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-1.5">
+            <div className="flex shrink-0 items-center gap-1.5 self-center">
               <button
                 className="inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] text-white/42 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-white/[0.045] hover:text-white/70 active:duration-0"
                 onClick={onClose}
@@ -232,9 +240,9 @@ export function NewTaskModal({
   );
 }
 
-function MetaControl({ children, icon }: { children: ReactNode; icon: ReactNode }) {
+function MetaControl({ children, icon, className = "" }: { children: ReactNode; icon: ReactNode; className?: string }) {
   return (
-    <div className="group flex min-h-7 items-center gap-1 rounded-md px-1 text-white/30 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:text-white/52">
+    <div className={["group flex min-h-7 items-center gap-1 rounded-md px-1 text-white/30 transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:text-white/52", className].join(" ")}>
       <span className="shrink-0">{icon}</span>
       <div className="min-w-0">{children}</div>
     </div>

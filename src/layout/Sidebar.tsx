@@ -55,8 +55,9 @@ export function Sidebar({
   );
 
   const todayCount = useMemo(() => allTasks.filter((task) => isToday(task.dueDate)).length, [allTasks]);
-  const activeProjects = projects.filter((p) => !p.archived);
-  const archivedProjects = projects.filter((p) => p.archived);
+  // Memoize so the two lists aren't re-allocated on every render of the parent AppLayout.
+  const activeProjects = useMemo(() => projects.filter((p) => !p.archived), [projects]);
+  const archivedProjects = useMemo(() => projects.filter((p) => p.archived), [projects]);
 
   return (
     <aside

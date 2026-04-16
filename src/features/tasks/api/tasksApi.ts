@@ -1,4 +1,4 @@
-import { apiClient, PageResponse, Priority, Status, Task } from "../../../api";
+import { apiClient, extractCreatedIdFromLocation, PageResponse, Priority, Status, Task } from "../../../api";
 
 export type TaskFilters = {
   page?: number;
@@ -19,8 +19,34 @@ export type CreateTaskPayload = {
 
 export type UpdateTaskPayload = Partial<CreateTaskPayload & { dueDate: string | null }>;
 
+type TaskResponse = Omit<Task, "description"> & {
+  description?: string | null;
+  projectId?: number | null;
+  dueDate?: string | null;
+};
+
+function normalizeTask(task: TaskResponse): Task {
+  return {
+    ...task,
+    description: task.description ?? "",
+    projectId: task.projectId ?? null,
+    dueDate: task.dueDate ?? null,
+  };
+}
+
+function isCompleteTaskResponse(task: TaskResponse | undefined): task is TaskResponse {
+  return Boolean(
+    task &&
+      typeof task.id === "number" &&
+      typeof task.title === "string" &&
+      typeof task.status === "string" &&
+      typeof task.priority === "string" &&
+      typeof task.createdAt === "string",
+  );
+}
+
 export async function getTasks({ page = 0, size = 100, projectId, status, priority }: TaskFilters = {}) {
-  const response = await apiClient.get<PageResponse<Task>>("/tasks", {
+  const response = await apiClient.get<PageResponse<TaskResponse>>("/tasks", {
     params: {
       page,
       size,
@@ -30,7 +56,10 @@ export async function getTasks({ page = 0, size = 100, projectId, status, priori
     },
   });
 
-  return response.data;
+  return {
+    ...response.data,
+    content: response.data.content.map(normalizeTask),
+  };
 }
 
 export async function getAllTasks(filters: Omit<TaskFilters, "page"> = {}) {
@@ -50,7 +79,7 @@ export async function getAllTasks(filters: Omit<TaskFilters, "page"> = {}) {
 }
 
 export async function createTask(payload: CreateTaskPayload) {
-  const response = await apiClient.post<Task>("/tasks", {
+  const response = await apiClient.post<TaskResponse | undefined>("/tasks", {
     title: payload.title,
     description: payload.description,
     priority: payload.priority,
@@ -58,17 +87,28 @@ export async function createTask(payload: CreateTaskPayload) {
     dueDate: payload.dueDate,
     projectId: payload.projectId,
   });
-  return response.data;
+  const createdTask = isCompleteTaskResponse(response.data) ? normalizeTask(response.data) : undefined;
+  const createdId = createdTask?.id ?? extractCreatedIdFromLocation(response.headers.location);
+
+  if (createdTask) {
+    return createdTask;
+  }
+
+  if (!createdId) {
+    throw new Error("Task created but no task id was returned.");
+  }
+
+  return getTask(createdId);
 }
 
 export async function getTask(id: number) {
-  const response = await apiClient.get<Task>(`/tasks/${id}`);
-  return response.data;
+  const response = await apiClient.get<TaskResponse>(`/tasks/${id}`);
+  return normalizeTask(response.data);
 }
 
 export async function updateTask(id: number, payload: UpdateTaskPayload) {
-  const response = await apiClient.patch<Task>(`/tasks/${id}`, payload);
-  return response.data;
+  const response = await apiClient.patch<TaskResponse>(`/tasks/${id}`, payload);
+  return normalizeTask(response.data);
 }
 
 export async function deleteTask(id: number) {

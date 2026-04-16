@@ -1,16 +1,17 @@
+import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Task } from "../../../api";
+import { isApiErrorWithStatus, Task } from "../../../api";
 import { getTask } from "../api/tasksApi";
 
 export function useTask(taskId: number | null) {
   const queryClient = useQueryClient();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ["task", taskId],
     queryFn: () => getTask(taskId as number),
     enabled: taskId !== null,
     retry: false,
-    initialData: () => {
+    placeholderData: () => {
       if (taskId === null) {
         return undefined;
       }
@@ -26,4 +27,25 @@ export function useTask(taskId: number | null) {
       return undefined;
     },
   });
+
+  useEffect(() => {
+    if (taskId === null || !isApiErrorWithStatus(query.error, 404)) {
+      return;
+    }
+
+    const cachedEntries = queryClient.getQueriesData<Task[]>({ queryKey: ["tasks"] });
+    cachedEntries.forEach(([queryKey, tasks]) => {
+      if (!tasks?.some((task) => task.id === taskId)) {
+        return;
+      }
+
+      queryClient.setQueryData<Task[]>(
+        queryKey,
+        tasks.filter((task) => task.id !== taskId),
+      );
+    });
+    queryClient.removeQueries({ queryKey: ["task", taskId] });
+  }, [query.error, queryClient, taskId]);
+
+  return query;
 }

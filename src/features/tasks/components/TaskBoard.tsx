@@ -1,4 +1,15 @@
-import { FormEvent, MouseEvent, PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import {
+  FormEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent,
+  PointerEvent as ReactPointerEvent,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -53,19 +64,16 @@ function formatDueDate(input?: string | null) {
 
 // ─── Task card ────────────────────────────────────────────────────────────────
 
-function TaskCard({
-  task,
-  ghost,
-  highlighted,
-  onOpen,
-  onContextMenu,
-}: {
+type TaskCardProps = {
   task: Task;
   ghost?: boolean;
   highlighted: boolean;
-  onOpen: () => void;
+  // Task-aware so parent passes a stable reference instead of a per-row closure.
+  onOpen: (task: Task) => void;
   onContextMenu: (event: MouseEvent<HTMLDivElement>, task: Task) => void;
-}) {
+};
+
+function TaskCardInner({ task, ghost, highlighted, onOpen, onContextMenu }: TaskCardProps) {
   const { attributes, listeners, setNodeRef, isDragging } =
     useDraggable({ id: task.id });
 
@@ -89,39 +97,66 @@ function TaskCard({
       rect.left < 0 ||
       rect.right > window.innerWidth;
     if (outsideViewport) {
-      cardRef.current.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+      cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
     }
   }, [highlighted]);
 
+  const setRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      setNodeRef(node);
+      cardRef.current = node;
+    },
+    [setNodeRef],
+  );
+
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      pointerDownPos.current = { x: event.clientX, y: event.clientY };
+      didDrag.current = false;
+      (listeners as Record<string, (event: ReactPointerEvent) => void>)?.onPointerDown?.(event);
+    },
+    [listeners],
+  );
+
+  const handlePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!pointerDownPos.current) return;
+    const dx = Math.abs(event.clientX - pointerDownPos.current.x);
+    const dy = Math.abs(event.clientY - pointerDownPos.current.y);
+    if (dx > 4 || dy > 4) didDrag.current = true;
+  }, []);
+
+  const handleClick = useCallback(() => {
+    if (!didDrag.current) onOpen(task);
+  }, [onOpen, task]);
+
+  const handleKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.key === "Enter" || event.key === " ") onOpen(task);
+    },
+    [onOpen, task],
+  );
+
+  const handleContextMenu = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => onContextMenu(event, task),
+    [onContextMenu, task],
+  );
+
   return (
     <div
-      ref={(node) => {
-        setNodeRef(node);
-        cardRef.current = node;
-      }}
+      ref={setRef}
       {...listeners}
       {...attributes}
       role="button"
       tabIndex={0}
       aria-label={task.title}
-      onPointerDown={(e) => {
-        pointerDownPos.current = { x: e.clientX, y: e.clientY };
-        didDrag.current = false;
-        (listeners as Record<string, (event: ReactPointerEvent) => void>)?.onPointerDown?.(e);
-      }}
-      onPointerMove={(e) => {
-        if (pointerDownPos.current) {
-          const dx = Math.abs(e.clientX - pointerDownPos.current.x);
-          const dy = Math.abs(e.clientY - pointerDownPos.current.y);
-          if (dx > 4 || dy > 4) didDrag.current = true;
-        }
-      }}
-      onClick={() => { if (!didDrag.current) onOpen(); }}
-      onContextMenu={(event) => onContextMenu(event, task)}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onOpen(); }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onClick={handleClick}
+      onContextMenu={handleContextMenu}
+      onKeyDown={handleKeyDown}
       className={[
-        "task-layout-item group relative rounded-lg border p-2.5 select-none outline-none transition-colors duration-100",
-        highlighted ? "task-new-entry task-welcome-pulse" : "",
+        "task-layout-item group relative rounded-lg border p-2.5 select-none outline-none transition-[background-color,border-color,box-shadow,transform,opacity] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        highlighted ? "task-keyboard-selected" : "",
         ghost || isDragging
           ? "border-white/10 bg-white/[0.04] opacity-30"
           : isCancelled
@@ -168,6 +203,8 @@ function TaskCard({
   );
 }
 
+const TaskCard = memo(TaskCardInner);
+
 // ─── Drag overlay ─────────────────────────────────────────────────────────────
 
 function TaskCardOverlay({ task }: { task: Task }) {
@@ -195,7 +232,21 @@ function TaskCardOverlay({ task }: { task: Task }) {
 
 // ─── Column ───────────────────────────────────────────────────────────────────
 
-function BoardColumn({
+type BoardColumnProps = {
+  column: (typeof COLUMNS)[number];
+  tasks: Task[];
+  activeId: number | null;
+  highlightedTaskId: number | null;
+  isOver: boolean;
+  isFocused: boolean;
+  onOpen: (task: Task) => void;
+  onContextMenu: (event: MouseEvent<HTMLDivElement>, task: Task) => void;
+  // Accepts the column id so the parent can share a single stable handler.
+  onQuickAdd: (status: Task["status"], title: string) => Promise<void> | void;
+  onToggleFocus: (status: Task["status"]) => void;
+};
+
+function BoardColumnInner({
   column,
   tasks,
   activeId,
@@ -206,18 +257,7 @@ function BoardColumn({
   onContextMenu,
   onQuickAdd,
   onToggleFocus,
-}: {
-  column: (typeof COLUMNS)[number];
-  tasks: Task[];
-  activeId: number | null;
-  highlightedTaskId: number | null;
-  isOver: boolean;
-  isFocused: boolean;
-  onOpen: (task: Task) => void;
-  onContextMenu: (event: MouseEvent<HTMLDivElement>, task: Task) => void;
-  onQuickAdd: (title: string) => Promise<void> | void;
-  onToggleFocus: () => void;
-}) {
+}: BoardColumnProps) {
   const { setNodeRef } = useDroppable({ id: column.id });
   const [title, setTitle] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -231,19 +271,21 @@ function BoardColumn({
 
     setSubmitting(true);
     try {
-      await onQuickAdd(trimmedTitle);
+      await onQuickAdd(column.id, trimmedTitle);
       setTitle("");
     } finally {
       setSubmitting(false);
     }
   }
 
+  const handleToggleFocus = useCallback(() => onToggleFocus(column.id), [onToggleFocus, column.id]);
+
   return (
     <div className="flex min-w-0 flex-1 flex-col" style={{ minWidth: 180 }}>
       {/* Column header — clickable to focus/isolate */}
       <button
         type="button"
-        onClick={onToggleFocus}
+        onClick={handleToggleFocus}
         className={[
         "group mb-2 flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors duration-100 ease-[cubic-bezier(0.16,1,0.3,1)]",
           isFocused
@@ -275,7 +317,7 @@ function BoardColumn({
             ghost={task.id === activeId}
             highlighted={task.id === highlightedTaskId}
             onContextMenu={onContextMenu}
-            onOpen={() => onOpen(task)}
+            onOpen={onOpen}
           />
         ))}
 
@@ -308,17 +350,11 @@ function BoardColumn({
   );
 }
 
+const BoardColumn = memo(BoardColumnInner);
+
 // ─── Board root ───────────────────────────────────────────────────────────────
 
-export function TaskBoard({
-  tasks,
-  highlightedTaskId,
-  loading,
-  onDeleteTask,
-  onOpenTask,
-  onQuickAdd,
-  onToast,
-}: {
+type TaskBoardProps = {
   tasks: Task[];
   highlightedTaskId: number | null;
   loading: boolean;
@@ -326,7 +362,17 @@ export function TaskBoard({
   onOpenTask: (task: Task) => void;
   onQuickAdd: (status: Task["status"], title: string) => Promise<void> | void;
   onToast?: (toast: { title: string; message: string; tone?: "error" | "success" }) => void;
-}) {
+};
+
+function TaskBoardInner({
+  tasks,
+  highlightedTaskId,
+  loading,
+  onDeleteTask,
+  onOpenTask,
+  onQuickAdd,
+  onToast,
+}: TaskBoardProps) {
   const updateTask = useUpdateTask();
   const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
   const [overColumnId, setOverColumnId] = useState<Task["status"] | null>(null);
@@ -338,22 +384,43 @@ export function TaskBoard({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
-  const visibleTasks = tasks.map((task) => {
-    const optimisticStatus = optimisticStatuses[task.id];
-    return optimisticStatus ? { ...task, status: optimisticStatus } : task;
-  });
+  // Apply optimistic status overrides. Stable identity so downstream memoization sticks.
+  const visibleTasks = useMemo(() => {
+    if (Object.keys(optimisticStatuses).length === 0) {
+      return tasks;
+    }
 
-  const activeTask = activeTaskId != null
-    ? visibleTasks.find((t) => t.id === activeTaskId) ?? null
-    : null;
+    return tasks.map((task) => {
+      const optimisticStatus = optimisticStatuses[task.id];
+      return optimisticStatus ? { ...task, status: optimisticStatus } : task;
+    });
+  }, [tasks, optimisticStatuses]);
 
-  const visibleColumns = focusedColumn
-    ? COLUMNS.filter((c) => c.id === focusedColumn)
-    : COLUMNS;
+  const activeTask = useMemo(
+    () => (activeTaskId != null ? visibleTasks.find((t) => t.id === activeTaskId) ?? null : null),
+    [activeTaskId, visibleTasks],
+  );
 
-  const tasksByStatus = Object.fromEntries(
-    COLUMNS.map((col) => [col.id, visibleTasks.filter((t) => t.status === col.id)]),
-  ) as Record<Task["status"], Task[]>;
+  const visibleColumns = useMemo(
+    () => (focusedColumn ? COLUMNS.filter((c) => c.id === focusedColumn) : COLUMNS),
+    [focusedColumn],
+  );
+
+  // Single O(n) pass instead of four O(n) filters per render.
+  const tasksByStatus = useMemo(() => {
+    const buckets: Record<Task["status"], Task[]> = {
+      OPEN: [],
+      IN_PROGRESS: [],
+      DONE: [],
+      CANCELLED: [],
+    };
+
+    for (const task of visibleTasks) {
+      buckets[task.status].push(task);
+    }
+
+    return buckets;
+  }, [visibleTasks]);
 
   useEffect(() => {
     if (!highlightedTaskId || !focusedColumn) {
@@ -366,44 +433,52 @@ export function TaskBoard({
     }
   }, [focusedColumn, highlightedTaskId, visibleTasks]);
 
-  function handleDragStart({ active }: DragStartEvent) {
+  const handleDragStart = useCallback(({ active }: DragStartEvent) => {
     setActiveTaskId(active.id as number);
-  }
+  }, []);
 
-  function handleDragOver({ over }: DragOverEvent) {
+  const handleDragOver = useCallback(({ over }: DragOverEvent) => {
     setOverColumnId((over?.id as Task["status"]) ?? null);
-  }
+  }, []);
 
-  function handleDragEnd({ active, over }: DragEndEvent) {
-    setActiveTaskId(null);
-    setOverColumnId(null);
-    if (!over) return;
-    const taskId = active.id as number;
-    const newStatus = over.id as Task["status"];
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task || task.status === newStatus) return;
-    setOptimisticStatuses((current) => ({ ...current, [taskId]: newStatus }));
-    updateTask.mutate(
-      { id: taskId, payload: { status: newStatus } },
-      {
-        onSettled: () => {
-          setOptimisticStatuses((current) => {
-            const { [taskId]: _finishedTaskStatus, ...rest } = current;
-            return rest;
-          });
+  const handleDragEnd = useCallback(
+    ({ active, over }: DragEndEvent) => {
+      setActiveTaskId(null);
+      setOverColumnId(null);
+      if (!over) return;
+      const taskId = active.id as number;
+      const newStatus = over.id as Task["status"];
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task || task.status === newStatus) return;
+      setOptimisticStatuses((current) => ({ ...current, [taskId]: newStatus }));
+      updateTask.mutate(
+        { id: taskId, payload: { status: newStatus } },
+        {
+          onSettled: () => {
+            setOptimisticStatuses((current) => {
+              const { [taskId]: _finishedTaskStatus, ...rest } = current;
+              return rest;
+            });
+          },
         },
-      },
-    );
-  }
+      );
+    },
+    [tasks, updateTask],
+  );
 
-  function handleTaskContextMenu(event: MouseEvent<HTMLDivElement>, task: Task) {
-    event.preventDefault();
-    setContextMenu({
-      task,
-      x: event.clientX,
-      y: event.clientY,
-    });
-  }
+  const handleTaskContextMenu = useCallback(
+    (event: MouseEvent<HTMLDivElement>, task: Task) => {
+      event.preventDefault();
+      setContextMenu({ task, x: event.clientX, y: event.clientY });
+    },
+    [],
+  );
+
+  const handleCloseContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const handleToggleFocus = useCallback((status: Task["status"]) => {
+    setFocusedColumn((prev) => (prev === status ? null : status));
+  }, []);
 
   if (loading) {
     return (
@@ -432,10 +507,8 @@ export function TaskBoard({
             isFocused={focusedColumn === col.id}
             onContextMenu={handleTaskContextMenu}
             onOpen={onOpenTask}
-            onQuickAdd={(title) => onQuickAdd(col.id, title)}
-            onToggleFocus={() =>
-              setFocusedColumn((prev) => (prev === col.id ? null : col.id))
-            }
+            onQuickAdd={onQuickAdd}
+            onToggleFocus={handleToggleFocus}
           />
         ))}
       </div>
@@ -446,7 +519,7 @@ export function TaskBoard({
 
       {contextMenu ? (
         <TaskContextMenu
-          onClose={() => setContextMenu(null)}
+          onClose={handleCloseContextMenu}
           onDeleteTask={onDeleteTask}
           onToast={onToast}
           task={contextMenu.task}
@@ -457,3 +530,5 @@ export function TaskBoard({
     </DndContext>
   );
 }
+
+export const TaskBoard = memo(TaskBoardInner);

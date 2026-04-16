@@ -198,6 +198,10 @@ export function normalizeApiError(error: unknown) {
   return new Error("Something went wrong");
 }
 
+export function isApiErrorWithStatus(error: unknown, status: number) {
+  return axios.isAxiosError(error) ? error.response?.status === status : false;
+}
+
 export function extractCreatedIdFromLocation(location?: string | null) {
   if (!location) {
     return null;

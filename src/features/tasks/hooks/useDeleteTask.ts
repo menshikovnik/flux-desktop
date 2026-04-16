@@ -29,6 +29,7 @@ export function useDeleteTask() {
       return { previousEntries, previousTask, taskId };
     },
     onError: (_error, _taskId, context) => {
+      // Roll back the optimistic delete if the server rejected the change.
       context?.previousEntries.forEach(([queryKey, data]) => {
         queryClient.setQueryData(queryKey, data);
       });
@@ -36,9 +37,6 @@ export function useDeleteTask() {
       if (context?.previousTask && context.taskId) {
         queryClient.setQueryData(["task", context.taskId], context.previousTask);
       }
-    },
-    onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 }

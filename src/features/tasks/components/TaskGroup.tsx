@@ -1,5 +1,5 @@
 import { ChevronRight, Plus } from "lucide-react";
-import { FormEvent, ReactNode, useEffect, useState } from "react";
+import { FormEvent, ReactNode, memo, useEffect, useState } from "react";
 import { Status } from "../../../api";
 
 type TaskGroupProps = {
@@ -24,7 +24,7 @@ function readCollapsedState() {
   }
 }
 
-export function TaskGroup({
+function TaskGroupInner({
   title,
   count,
   children,
@@ -35,15 +35,12 @@ export function TaskGroup({
   onQuickAdd,
 }: TaskGroupProps) {
   const storageId = `${storageScope}:${title}`;
+  // Lazy initializer already reads from localStorage once on mount — no need for a separate
+  // effect to re-read it on every `storageId` change (which would fight user toggles).
   const [collapsed, setCollapsed] = useState(() => {
     const collapsedState = readCollapsedState();
     return collapsedState[storageId] ?? defaultCollapsed;
   });
-
-  useEffect(() => {
-    const collapsedState = readCollapsedState();
-    setCollapsed(collapsedState[storageId] ?? defaultCollapsed);
-  }, [defaultCollapsed, storageId]);
 
   useEffect(() => {
     const collapsedState = readCollapsedState();
@@ -83,6 +80,8 @@ export function TaskGroup({
     </section>
   );
 }
+
+export const TaskGroup = memo(TaskGroupInner);
 
 function InlineQuickAdd({ onQuickAdd }: { onQuickAdd: (title: string) => Promise<void> | void }) {
   const [title, setTitle] = useState("");
